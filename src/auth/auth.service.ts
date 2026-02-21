@@ -202,172 +202,75 @@ export class AuthService {
       }
     }
    */
-  /* // ========================================
-   //Login por PIN
-   // ========================================
-   async singInPin(loginAuthPin: LoginAuthPinDto) {
-     try {
-       //buscamos el usuario
-        Debe tener el mismo correo
-          Debe estar activo en estatus
-          debe estar confirmado el correo
-          y el cliente al que pertenece debe estar activo
-       
-       const user = await this.usuariosRepository.findOne({
-         relations: ['idRol2', 'idCliente2'],
-         where: {
-           userName: loginAuthPin.userName,
-           estatus: 1,
-           emailConfirmado: 1,
-           idCliente2: {
-             estatus: 1,
-           },
-         },
-       });
- 
- 
-       if (user?.idCliente2?.estatus === 0) {
-         throw new UnauthorizedException(
-           'Acceso denegado: el cliente ha sido dado de baja.',
-         );
-       }
-       if (!user) {
-         throw new NotFoundException('No se encontró al usuario.');
-       }
-       if (user.deviceId !== loginAuthPin.deviceId) {
-         throw new NotFoundException('El dispositivo reportado no coincide con el dispositivo asignado al usuario.');
-       }
- 
-       if (
-         !user ||
-         !user.pinHash ||
-         !(await bcrypt.compare(loginAuthPin.pinHash, user.pinHash))
-       ) {
-         throw new UnauthorizedException('Credenciales invalidas');
-       }
-       const permisos = await this.permisosRepository.find({
-         select: ['idPermiso'],
-         where: { idUsuario: user.id, estatus: 1 },
-       });
- 
-       function pad(n: number) {
-         return n < 10 ? '0' + n : n;
-       }
- 
-       const ahora = new Date();
-       const desfaseMs = -6 * 60 * 60 * 1000; // -6 horas en milisegundos
-       const fechaDesfasada = new Date(ahora.getTime() + desfaseMs);
- 
-       const fechaActual = `${fechaDesfasada.getFullYear()}-${pad(fechaDesfasada.getMonth() + 1)}-${pad(fechaDesfasada.getDate())} ${pad(fechaDesfasada.getHours())}:${pad(fechaDesfasada.getMinutes())}:${pad(fechaDesfasada.getSeconds())}`;
- 
-       await this.usuariosRepository.update(user.id, {
-         ultimoLogin: fechaActual,
-       });
-       const pin = user.pinHash ? 1 : 0;
-       const operador = await this.usuariosRepository.query(`
-           WITH DatosUsuario AS (
-     SELECT
-         u.Id AS IdUsuario,
-         u.UserName AS userName,
-         u.Nombre AS nombre,
-         u.ApellidoPaterno AS apellidoPaterno,
-         u.ApellidoMaterno AS apellidoMaterno,
-         u.Telefono AS telefono,
-         u.UltimoLogin AS ultimoLogin,
-         u.FechaCreacion AS fechaCreacion,
-         u.FotoPerfil AS fotoPerfil,
-         u.DeviceId AS deviceId,
- 
-         -- CLIENTE
-         c.Id AS idCliente,
-         c.Nombre AS nombreCliente,
-         c.ApellidoPaterno AS apellidoPaternoCliente,
-         c.ApellidoMaterno AS apellidoMaternoCliente,
-         c.Logotipo AS logotipo,
- 
-         -- OPERADOR
-         o.Id AS idOperador,
-         o.FechaNacimiento AS fechaNacimiento,
-         o.Identificacion AS identificacion,
-         o.Foto AS fotoOperador,
-         o.ComprobanteDomicilio AS comprobanteDomicilioOperador,
-         o.CertificadoMedico AS certificadoMedicoOperador,
-         o.AntecedentesNoPenales AS antecedentesNoPenalesOperador,
-         o.Estatus AS estatusOperador
-     FROM Usuarios u
-     INNER JOIN Clientes c ON c.Id = u.IdCliente
-     LEFT JOIN Operadores o ON o.IdUsuario = u.Id
-     WHERE u.Id = ${user.id}
- ),
- LicenciasJSON AS (
-     SELECT
-         o.IdUsuario,
-         JSON_ARRAYAGG(
-             JSON_OBJECT(
-                 'IdLicencia', l.Id,
-                 'Licencia', l.Licencia,
-                 'NumeroLicencia', l.NumeroLicencia,
-                 'FechaExpedicion', l.FechaExpedicion,
-                 'FechaVencimiento', l.FechaVencimiento,
-                 'IdTipoLicencia', l.IdTipoLicencia,
-                 'IdCategoriaLicencia', l.IdCategoriaLicencia
-             )
-         ) AS Licencias
-     FROM Operadores o
-     LEFT JOIN Licencias l ON l.IdOperador = o.Id
-     GROUP BY o.IdUsuario
- )
- SELECT 
-     du.*,
-     lj.Licencias
- FROM DatosUsuario du
- LEFT JOIN LicenciasJSON lj ON lj.IdUsuario = du.IdUsuario;
-           `)
- 
-       const payload = {
-         id: user.id,
-         email: user.userName,
-         cliente: user.idCliente,
-         rol: user.idRol,
-         idOperador: operador[0].idOperador
-       };
-       return {
-         message: `login exitoso`,
-         id: Number(operador[0].IdUsuario),
-         nombre: operador[0].nombre,
-         apellidoPaterno: operador[0].apellidoPaterno,
-         apellidoMaterno: operador[0].apellidoMaterno,
-         fechaNacimiento: operador[0].fechaNacimiento,
-         identificacion: operador[0].identificacion,
-         comprobanteDomicilioOperador: operador[0].comprobanteDomicilioOperador,
-         certificadoMedicoOperador: operador[0].certificadoMedicoOperador,
-         antecedentesNoPenalesOperador: operador[0].antecedentesNoPenalesOperador,
-         estatusOperador: operador[0].estatusOperador,
-         idCliente: Number(operador[0].idCliente),
-         nombreCliente: operador[0].nombreCliente,
-         apellidoPaternoCliente: operador[0].apellidoPaternoCliente,
-         apellidoMaternoCliente: operador[0].apellidoMaternoCliente,
-         logotipo: operador[0].logotipo,
-         telefono: operador[0].telefono,
-         ultimoLogin: operador[0].ultimoLogin,
-         fechaCreacion: operador[0].fechaCreacion,
-         fotoPerfil: operador[0].fotoOperador,
-         deviceId: operador[0].deviceId,
-         pinExist: pin,
-         userName: user.userName,
-         Licencias: operador[0].Licencias,
-         rol: user.idRol2,
-         token: this.jwtService.sign(payload),
-         permisos: permisos,
-       };
-     } catch (error) {
-       if (error instanceof HttpException) {
-         throw error;
-       }
-       throw new InternalServerErrorException(error);
-     }
-   }
- */
+  // ========================================
+  //Login por PIN
+  // ========================================
+  async signInPin(loginAuthPin: LoginAuthPinDto) {
+    try {
+      const user = await this.usuariosRepository.findOne({
+        relations: ['idRol2', 'cliente2'],
+        where: {
+          userName: loginAuthPin.userName,
+          estatus: 1,
+          emailConfirmado: 1,
+          cliente2: {
+            estatus: 1,
+          },
+        },
+      });
+      if (!user) {
+        throw new NotFoundException('No se encontró al usuario.');
+      }
+
+      if (!user.pinHash || !(await bcrypt.compare(loginAuthPin.codigo, user.pinHash))) {
+        throw new UnauthorizedException('Credenciales invalidas');
+      }
+
+      const permisos = await this.permisosRepository.find({
+        select: ['idPermiso'],
+        where: { idUsuario: user.id, estatus: 1 },
+      });
+
+      const payload = {
+        id: user.id,
+        email: user.userName,
+        idCliente: user.idCliente,
+        rol: user.idRol,
+      };
+
+      const { fechaActual } = await horaDesfasada();
+      await this.usuariosRepository.update(user.id, {
+        ultimoLogin: fechaActual,
+      });
+
+      return {
+        message: `login exitoso`,
+        id: Number(`${user.id}`),
+        nombre: `${user.nombre}`,
+        apellidoPaterno: `${user.apellidoPaterno}`,
+        apellidoMaterno: `${user.apellidoMaterno}`,
+        idCliente: Number(`${user.idCliente}`),
+        nombreCliente: `${user.cliente2?.nombre}`,
+        apellidoPaternoCliente: `${user.cliente2?.apellidoPaterno}`,
+        apellidoMaternoCliente: `${user.cliente2?.apellidoMaterno}`,
+        logotipo: `${user.cliente2.logotipo}`,
+        telefono: `${user.telefono}`,
+        ultimoLogin: `${user.ultimoLogin}`,
+        fechaCreacion: `${user.fechaCreacion}`,
+        fotoPerfil: `${user.fotoPerfil}`,
+        userName: `${user.userName}`,
+        rol: user.idRol2,
+        token: this.jwtService.sign(payload),
+        permisos: permisos,
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException(error);
+    }
+  }
+
   // ========================================
   //login por correo
   // ========================================

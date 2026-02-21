@@ -30,6 +30,7 @@ export class Roles {
   @Column("datetime", {
     name: "FechaActualizacion",
     default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   fechaActualizacion: Date;
 

@@ -22,6 +22,7 @@ import { BitacoraLoggerService } from 'src/bitacora/bitacora.service';
 import { ClientesService } from 'src/clientes/clientes.service';
 import { UsuariosPermisos } from 'src/entities/UsuariosPermisos';
 import { UpdateUsuarioContrasena } from './dto/update-usuario-contrasena.dto';
+import { UpdateMiPinDto } from './dto/update-mi-pin.dto';
 import { MailService } from 'src/mail/mail.service';
 import { JwtService } from '@nestjs/jwt';
 import { Clientes } from 'src/entities/Clientes';
@@ -685,6 +686,80 @@ ORDER BY u.Id DESC
       }
       throw new InternalServerErrorException({
         message: 'Error al actualizar la contraseña.',
+        error: error.message,
+      });
+    }
+  }
+
+  // ========================================
+  // 🔹 CREAR/ACTUALIZAR MI PIN (USUARIO LOGUEADO)
+  // ========================================
+  async createMyPin(
+    idUser: number,
+    updateMiPinDto: UpdateMiPinDto,
+  ): Promise<ApiCrudResponse> {
+    try {
+      const usuario = await this.usuarioRepository.findOne({
+        where: { id: idUser, estatus: 1 },
+      });
+      if (!usuario) {
+        throw new NotFoundException(
+          `Usuario autenticado con ID: ${idUser} no encontrado.`,
+        );
+      }
+
+      const pinPassword = await bcrypt.hash(updateMiPinDto.pinHash, 10);
+
+      function pad(n: number) {
+        return n < 10 ? '0' + n : n;
+      }
+      const ahora = new Date();
+      const desfaseMs = -6 * 60 * 60 * 1000;
+      const fechaDesfasada = new Date(ahora.getTime() + desfaseMs);
+      const fechaActual = `${fechaDesfasada.getFullYear()}-${pad(fechaDesfasada.getMonth() + 1)}-${pad(fechaDesfasada.getDate())} ${pad(fechaDesfasada.getHours())}:${pad(fechaDesfasada.getMinutes())}:${pad(fechaDesfasada.getSeconds())}`;
+
+      await this.usuarioRepository.update(usuario.id, {
+        pinHash: pinPassword,
+        actualizacionPin: fechaActual,
+      });
+
+      const querylogger = { idUser };
+      await this.bitacoraLogger.logToBitacora(
+        'Usuarios',
+        `El PIN ha sido generado para el usuario autenticado con ID: ${idUser}.`,
+        'UPDATE',
+        querylogger,
+        idUser,
+        EnumModulos.USUARIOS,
+        EstatusEnumBitcora.SUCCESS,
+      );
+
+      const result: ApiCrudResponse = {
+        status: 'success',
+        message: 'El PIN ha sido creado correctamente.',
+        data: {
+          id: Number(usuario.id),
+          nombre: `${usuario.nombre} ${usuario.apellidoPaterno} ` || '',
+        },
+      };
+      return result;
+    } catch (error) {
+      const querylogger = { idUser };
+      await this.bitacoraLogger.logToBitacora(
+        'Usuarios',
+        `El PIN ha sido generado para el usuario autenticado con ID: ${idUser}.`,
+        'UPDATE',
+        querylogger,
+        idUser,
+        EnumModulos.USUARIOS,
+        EstatusEnumBitcora.ERROR,
+        error.message,
+      );
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new InternalServerErrorException({
+        message: 'Error al crear el PIN del usuario autenticado.',
         error: error.message,
       });
     }

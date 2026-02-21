@@ -34,11 +34,12 @@ export class Permisos {
   @Column("datetime", {
     name: "FechaActualizacion",
     default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   fechaActualizacion: Date;
 
-  @Column("tinyint", { name: "Estatus", nullable: true, default: () => "'1'" })
-  estatus: number | null;
+  @Column("tinyint", { name: "Estatus", default: () => "'1'" })
+  estatus: number;
 
   @Column("bigint", { name: "IdModulo" })
   idModulo: number;

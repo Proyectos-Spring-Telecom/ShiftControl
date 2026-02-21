@@ -21,7 +21,7 @@ export class CodigoAutenticacion {
   @Column({ name: 'Codigo', type: 'varchar', length: 4 })
   codigo: string;
 
-  @Column({ name: 'Tipo', type: 'tinyint', })
+  @Column({ name: 'Tipo', type: 'tinyint', unsigned: true })
   tipo: number;
 
   @CreateDateColumn({ name: 'FechaCreacion', type: 'datetime', default: () => 'CURRENT_TIMESTAMP' })
@@ -38,5 +38,12 @@ export class CodigoAutenticacion {
 
   @Column({ name: 'Estatus', type: 'tinyint', default: () => 1 })
   estatus: number;
+
+  @ManyToOne(() => Usuarios, {
+    onDelete: 'CASCADE',
+    onUpdate: 'NO ACTION',
+  })
+  @JoinColumn([{ name: 'IdUsuario', referencedColumnName: 'id' }])
+  usuario: Usuarios;
 
 }

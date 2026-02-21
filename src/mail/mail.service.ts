@@ -6,15 +6,28 @@ import * as nodemailer from 'nodemailer';
 @Injectable()
 export class MailService {
   private transporter: nodemailer.Transporter;
+  private readonly mailUser: string;
 
   constructor() {
+    const host = process.env.HOST;
+    const smtpPort = Number(process.env.SMTP);
+    const mailUser = process.env.E_MAIL;
+    const mailPassword = process.env.MAIL_PASSWORD;
+
+    if (!host || !Number.isFinite(smtpPort) || !mailUser || !mailPassword) {
+      throw new Error(
+        'Faltan variables de entorno SMTP requeridas: HOST, SMTP, E_MAIL, MAIL_PASSWORD',
+      );
+    }
+
+    this.mailUser = mailUser;
     this.transporter = nodemailer.createTransport({
-      host: process.env.HOST, // o tu proveedor SMTP
-      port: process.env.SMTP,
+      host, // o tu proveedor SMTP
+      port: smtpPort,
       secure: true,
       auth: {
-        user: process.env.E_MAIL,
-        pass: 'p323+p2%16#^',
+        user: mailUser,
+        pass: mailPassword,
       },
     });
   }
@@ -29,7 +42,7 @@ export class MailService {
   ) {
     const url = `https://transmovi.mx/transmoviDev/#/account/verify?token=${token}`;
     await this.transporter.sendMail({
-      from: `<${process.env.E_MAIL}>`,
+      from: `<${this.mailUser}>`,
       to,
       subject: '¡Bienvenido!',
       html: `
@@ -136,7 +149,7 @@ export class MailService {
     // 👆 Este debe apuntar a tu frontend Angular (puedes ajustarlo a localhost:3000 si haces la prueba desde backend)
 
     await this.transporter.sendMail({
-      from: ` <${process.env.E_MAIL}>`,
+      from: ` <${this.mailUser}>`,
       to,
       subject: 'Restablecer Contraseña',
       html: `

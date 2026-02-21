@@ -107,6 +107,7 @@ export class Clientes {
   @Column("datetime", {
     name: "FechaActualizacion",
     default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   fechaActualizacion: Date;
 

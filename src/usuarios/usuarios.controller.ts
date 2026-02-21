@@ -23,6 +23,7 @@ import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UpdateUsuarioEstatusDto } from './dto/update-usuario-estatus.dto';
 import { UpdateUsuarioContrasena } from './dto/update-usuario-contrasena.dto';
+import { UpdateMiPinDto } from './dto/update-mi-pin.dto';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -272,6 +273,37 @@ export class UsuariosController {
       idUser,
       updateUsuarioContrasena,
     );
+  }
+
+  @Patch('mi-pin')
+  @ApiOperation({
+    summary: 'Crear o actualizar mi PIN',
+    description:
+      'Permite al usuario autenticado generar o actualizar su PIN usando el token JWT.',
+  })
+  @ApiBody({ type: UpdateMiPinDto })
+  @ApiResponse({
+    status: 200,
+    description: 'PIN creado/actualizado exitosamente',
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'PIN invalido',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'No autorizado',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
+  })
+  async createMyPin(
+    @Body() updateMiPinDto: UpdateMiPinDto,
+    @Request() req,
+  ): Promise<ApiCrudResponse> {
+    const idUser = req.user.userId;
+    return await this.usuariosService.createMyPin(+idUser, updateMiPinDto);
   }
 
   @Patch(':id')

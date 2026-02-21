@@ -42,11 +42,11 @@ export class AuthController {
     );
   }
 
-/*   @Post('operador/login')
+ @Post('operador/login')
   @HttpCode(200)
   async loginPin(@Body() loginAuthPinDto: LoginAuthPinDto) {
-    return this.authService.singInPin(loginAuthPinDto);
-  } */
+    return this.authService.signInPin(loginAuthPinDto);
+  }
 
   @Post()
   @HttpCode(200)

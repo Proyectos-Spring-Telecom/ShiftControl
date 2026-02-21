@@ -14,7 +14,7 @@ import { Roles } from "./Roles";
 import { applySchema } from "src/common/apply-schema.decorator";
 
 @applySchema
-@Index("UQ_Usuarios_IdCliente_UserName", ["userName", "idCliente"], {
+@Index("UQ_Usuarios_IdCliente_UserName", ["idCliente", "userName"], {
   unique: true,
 })
 @Index("FK_Usuarios_Roles", ["idRol"], {})
@@ -69,6 +69,7 @@ export class Usuarios {
   @Column("datetime", {
     name: "FechaActualizacion",
     default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   fechaActualizacion: string;
 
@@ -78,8 +79,8 @@ export class Usuarios {
   @Column("bigint", { name: "IdRol" })
   idRol: number;
 
-  @Column("bigint", { name: "IdCliente", nullable: true })
-  idCliente: number | null;
+  @Column("bigint", { name: "IdCliente" })
+  idCliente: number;
 
   @OneToMany(() => Bitacora, (bitacora) => bitacora.idUsuario2)
   bitacoras: Bitacora[];

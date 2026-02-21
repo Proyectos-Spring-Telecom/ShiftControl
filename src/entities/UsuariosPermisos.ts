@@ -30,6 +30,7 @@ export class UsuariosPermisos {
   @Column("datetime", {
     name: "FechaActualizacion",
     default: () => "CURRENT_TIMESTAMP",
+    onUpdate: "CURRENT_TIMESTAMP",
   })
   fechaActualizacion: Date;
 
@@ -48,5 +49,12 @@ export class UsuariosPermisos {
   })
   @JoinColumn([{ name: "IdPermiso", referencedColumnName: "id" }])
   idPermiso2: Permisos;
+
+  @ManyToOne(() => Usuarios, {
+    onDelete: "NO ACTION",
+    onUpdate: "NO ACTION",
+  })
+  @JoinColumn([{ name: "IdUsuario", referencedColumnName: "id" }])
+  idUsuario2: Usuarios;
 
 }
