@@ -42,7 +42,7 @@ export class AuthController {
     );
   }
 
- @Post('operador/pin')
+ @Post('operador/nip')
   @HttpCode(200)
   async loginPin(@Body() loginAuthPinDto: LoginAuthPinDto) {
     return this.authService.signInPin(loginAuthPinDto);

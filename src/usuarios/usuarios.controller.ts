@@ -235,60 +235,54 @@ export class UsuariosController {
   }
 
   @Patch('actualizar/contrasena')
-  @ApiOperation({ 
-    summary: 'Cambiar contraseña de usuario',
-    description: 'Actualiza la contraseña de un usuario específico'
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID del usuario',
-    example: 1
+  @ApiOperation({
+    summary: 'Cambiar mi contraseña',
+    description:
+      'Actualiza la contraseña del usuario autenticado. El ID se obtiene del token JWT.',
   })
   @ApiBody({ type: UpdateUsuarioContrasena })
   @ApiResponse({
     status: 200,
     description: 'Contraseña actualizada exitosamente',
   })
-  @ApiResponse({ 
-    status: 400, 
-    description: 'Contraseña inválida' 
+  @ApiResponse({
+    status: 400,
+    description: 'Contraseña inválida',
   })
-  @ApiResponse({ 
-    status: 404, 
-    description: 'Usuario no encontrado' 
+  @ApiResponse({
+    status: 404,
+    description: 'Usuario no encontrado',
   })
   @ApiResponse({
     status: 401,
-    description: 'No autorizado'
+    description: 'No autorizado',
   })
   async updateContrasena(
-    @Param('id', ParseIntPipe) id: number,
     @Body() updateUsuarioContrasena: UpdateUsuarioContrasena,
     @Request() req,
   ): Promise<ApiCrudResponse> {
     const idUser = req.user.userId;
     return await this.usuariosService.updateContrasena(
-      idUser,
-      idUser,
+      +idUser,
+      String(idUser),
       updateUsuarioContrasena,
     );
   }
 
-  @Patch('mi-pin')
+  @Patch('mi-nip')
   @ApiOperation({
-    summary: 'Crear o actualizar mi PIN',
+    summary: 'Crear o actualizar mi nip',
     description:
-      'Permite al usuario autenticado generar o actualizar su PIN usando el token JWT.',
+      'Permite al usuario autenticado generar o actualizar su nip usando el token JWT.',
   })
   @ApiBody({ type: UpdateMiPinDto })
   @ApiResponse({
     status: 200,
-    description: 'PIN creado/actualizado exitosamente',
+    description: 'NIP creado/actualizado exitosamente',
   })
   @ApiResponse({
     status: 400,
-    description: 'PIN invalido',
+    description: 'NIP invalido',
   })
   @ApiResponse({
     status: 401,
