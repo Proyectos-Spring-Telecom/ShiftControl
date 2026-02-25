@@ -6,6 +6,9 @@ import { HttpStringResponseFilter } from './utils/http-string-response.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  
+  // Prefijo global: todas las rutas bajo /api (auth, mesas, clientes, etc.)
+  app.setGlobalPrefix('api');
 
   app.useGlobalFilters(new HttpStringResponseFilter());
 
