@@ -1,6 +1,6 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe} from '@nestjs/common';
+import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpStringResponseFilter } from './utils/http-string-response.filter';
 
@@ -22,8 +22,8 @@ async function bootstrap() {
 
   const config = new DocumentBuilder()
     .setTitle('Shift Control')
-    .setDescription('Documentación de la API de Shift Control') 
-    .setVersion('1.0') 
+    .setDescription('Documentación de la API de Shift Control')
+    .setVersion('1.0')
     .addServer('http://localhost:3010', 'Servidor Local')
     .addServer('http://springtelecom.mx:3003', 'Servidor Spring')
     .addBearerAuth(
@@ -53,16 +53,16 @@ async function bootstrap() {
       persistAuthorization: true,
       defaultModelsExpandDepth: -1,
     },
-  }); 
-  
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,       
-      forbidNonWhitelisted: true, 
-      transform: true,      
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
     }),
   );
-  
+
   await app.listen(process.env.PORT ?? 3010);
 }
 bootstrap();

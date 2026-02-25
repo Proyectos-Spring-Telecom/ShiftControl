@@ -434,18 +434,19 @@ Muchas gracias por su preferencia.`;
     loginAuthConfirmacionDto: LoginAuthConfirmacionDto,
   ) {
     try {
+      console.log('Entro al servicio donde envia el correo.')
       //Buscamos el usuario por correo
       const user = await this.usuariosRepository.findOne({
         where: { userName: loginAuthConfirmacionDto.userName },
       });
       if (!user) throw new BadRequestException('Usuario no encontrado');
-
+      console.log(user)
       //Generamos el codigo
       const codigo = await this.generarCodigo(
         user.id,
         TipoCodigoAutenticacion.RECUPERACION_CONTRASENA,
       );
-
+      console.log(codigo)
       //Generamos el payload para el tokenn
       const payload = {
         id: user.id,
@@ -456,6 +457,7 @@ Muchas gracias por su preferencia.`;
       const token = this.jwtService.sign(payload, {
         expiresIn: `${process.env.JWT_CONFIRMACION}`,
       });
+      console.log(token)
       const name = `${user.nombre} ${user.apellidoPaterno} ${user.apellidoMaterno}`;
       await this.emailService.sendResetPasswordEmail(
         user.userName,
