@@ -234,7 +234,7 @@ export class UsuariosController {
     );
   }
 
-  @Patch('actualizar/contrasena/:id')
+  @Patch('actualizar/contrasena')
   @ApiOperation({ 
     summary: 'Cambiar contraseña de usuario',
     description: 'Actualiza la contraseña de un usuario específico'
@@ -269,7 +269,7 @@ export class UsuariosController {
   ): Promise<ApiCrudResponse> {
     const idUser = req.user.userId;
     return await this.usuariosService.updateContrasena(
-      id,
+      idUser,
       idUser,
       updateUsuarioContrasena,
     );
