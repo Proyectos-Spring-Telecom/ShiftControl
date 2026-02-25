@@ -10,7 +10,12 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpStringResponseFilter());
 
   app.enableCors({
-    origin: '*', // Permitir todas las URLs; puedes poner un array de URLs específicas
+    origin: [
+      'https://springtelecom.mx/shiftcontrolapp',
+      'http://springtelecom.mx:3003/',
+      'http://localhost:3003',
+      'http://localhost:4200',
+    ], // Permitir todas las URLs; puedes poner un array de URLs específicas
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
@@ -20,6 +25,7 @@ async function bootstrap() {
     .setDescription('Documentación de la API de Shift Control') 
     .setVersion('1.0') 
     .addServer('http://localhost:3010', 'Servidor Local')
+    .addServer('http://springtelecom.mx:3003', 'Servidor Spring')
     .addBearerAuth(
       {
         type: 'http',
