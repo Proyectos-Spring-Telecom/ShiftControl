@@ -147,11 +147,8 @@ export class MailService {
 
   async sendResetPasswordEmail(to: string, name: string, token: string, codigo: string) {
     try {
-        const url = `https://transmovi.mx/transmoviDev/#/account/signup?token=${token}`;
+        const url = `https://springtelecom.mx/shiftcontrolapp/#/nueva-contrasena?token=${token}`;
         // 👆 Este debe apuntar a tu frontend Angular (puedes ajustarlo a localhost:3000 si haces la prueba desde backend)
-        console.log(url);
-        console.log(this.mailUser);
-        console.log(this.transporter);
         await this.transporter.sendMail({
           from: ` <${this.mailUser}>`,
           to,

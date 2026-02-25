@@ -28,7 +28,13 @@ export class AuthController {
   // 🔹 POST ROUTES - Rutas específicas primero
   // ========================================
 
-  @Post('usuario/recuperar/acceso')
+  @Post()
+  @HttpCode(200)
+  async login(@Body() loginAuthDto: LoginAuthDto) {
+    return this.authService.signIn(loginAuthDto);
+  }
+
+  @Post('usuario/solicitud/recuperacion')
   async email(@Body() loginAuthConfirmacionDto: LoginAuthConfirmacionDto) {
     return await this.authService.recuperarContrasena(loginAuthConfirmacionDto);
   }
@@ -54,11 +60,7 @@ export class AuthController {
     return await this.authService.resetPassword(loginAuthResetDto);
   }
 
-  @Post()
-  @HttpCode(200)
-  async login(@Body() loginAuthDto: LoginAuthDto) {
-    return this.authService.signIn(loginAuthDto);
-  }
+  
 
   // ========================================
   // 🔹 PATCH ROUTES - Rutas específicas primero
