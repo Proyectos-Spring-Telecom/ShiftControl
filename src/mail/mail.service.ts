@@ -20,7 +20,7 @@ export class MailService {
       );
     }
 
-    
+
     this.mailUser = mailUser;
     this.transporter = nodemailer.createTransport({
       host, // o tu proveedor SMTP
@@ -224,7 +224,7 @@ export class MailService {
         if (error instanceof HttpException) {
                 throw error;
               }
-              throw new InternalServerErrorException('Error al crear correo el archivo');
+              throw new InternalServerErrorException('Error al crear correo la biblioteca.');
     }
   }
 }
