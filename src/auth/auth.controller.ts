@@ -22,7 +22,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 @ApiBearerAuth('bearer-token')
 @Controller('login')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   // ========================================
   // 🔹 POST ROUTES - Rutas específicas primero
@@ -42,10 +42,16 @@ export class AuthController {
     );
   }
 
- @Post('operador/nip')
+  @Post('operador/accesso/nip')
   @HttpCode(200)
   async loginPin(@Body() loginAuthPinDto: LoginAuthPinDto) {
     return this.authService.signInPin(loginAuthPinDto);
+  }
+
+  @Post('cambiar/accesso')
+  @UseGuards(JwtAuthGuard)
+  async resetPassword(@Body() loginAuthResetDto: LoginAuthResetDto) {
+    return await this.authService.resetPassword(loginAuthResetDto);
   }
 
   @Post()
@@ -57,12 +63,6 @@ export class AuthController {
   // ========================================
   // 🔹 PATCH ROUTES - Rutas específicas primero
   // ========================================
-
-  @Post('cambiar/accesso')
-  @UseGuards(JwtAuthGuard)
-  async resetPassword(@Body() loginAuthResetDto: LoginAuthResetDto) {
-    return await this.authService.resetPassword(loginAuthResetDto);
-  }
 
   @Patch('verify')
   @HttpCode(200)

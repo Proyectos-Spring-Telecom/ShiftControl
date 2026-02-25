@@ -7,7 +7,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Usuarios } from 'src/entities/Usuarios';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
@@ -31,6 +31,7 @@ import { EnumModulos, EstatusEnum } from 'src/common/estatus.enum';
 @Injectable()
 export class UsuariosService {
   constructor(
+    private readonly dataSource: DataSource,
     @InjectRepository(Usuarios)
     private readonly usuarioRepository: Repository<Usuarios>,
     private readonly bitacoraLogger: BitacoraLoggerService,
@@ -41,7 +42,7 @@ export class UsuariosService {
     private readonly clienteRepository: Repository<Clientes>,
     private readonly emailService: MailService,
     private readonly jwtService: JwtService,
-  ) { }
+  ) {}
 
   //funcion para obtener los clientes hijos
   private async clienteHijos(cliente: number) {
@@ -480,64 +481,52 @@ ORDER BY u.Id DESC
   }
 
   // ========================================
-  // 🔹 CREACION DE USUARIOS
+  // 🔹 CREACION DE USUARIOS (operación atómica: usuario + permisos en una transacción)
   // ========================================
   async createUsuario(
     createUsuarioDto: CreateUsuarioDto,
     idUser: string,
   ): Promise<ApiCrudResponse> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const existUsuario = await this.usuarioRepository.findOne({
-        //Buscamos si existe usuario
+      const usuarioRepo = queryRunner.manager.getRepository(Usuarios);
+      const usuariosPermisosRepo =
+        queryRunner.manager.getRepository(UsuariosPermisos);
+
+      const existUsuario = await usuarioRepo.findOne({
         where: { userName: createUsuarioDto.userName },
       });
       if (existUsuario) {
         throw new BadRequestException('El usuario ya se encuentra registrado.');
       }
 
-      const hashedPassword = await bcrypt.hash(
-        createUsuarioDto.passwordHash,
-        10,
-      ); //encriptamos la contraseña
-      createUsuarioDto.passwordHash = hashedPassword;
+      const hashedPassword = await bcrypt.hash(createUsuarioDto.passwordHash, 10);
+      const { passwordHash: _plain, permisosIds, ...restDto } = createUsuarioDto;
+      const userData = {
+        ...restDto,
+        passwordHash: hashedPassword,
+        emailConfirmado: 1,
+        estatus: 1,
+      };
 
-      const newUser = await this.usuarioRepository.create(createUsuarioDto);
+      const newUser = usuarioRepo.create(userData);
+      const userSave = await usuarioRepo.save(newUser);
 
-      //Activamos su ingreso
-      newUser.emailConfirmado = 1;
-      newUser.estatus = 1;
-
-      const userSave = await this.usuarioRepository.save(newUser); //creamos el usuario
-
-      if (createUsuarioDto.permisosIds.length > 0) {
-        const usuariosPermisos = createUsuarioDto.permisosIds.map((permisoId) =>
-          this.usuariosPermisosRepository.create({
+      if ((permisosIds?.length ?? 0) > 0) {
+        const usuariosPermisos = permisosIds.map((permisoId) =>
+          usuariosPermisosRepo.create({
             idUsuario: userSave.id,
             idPermiso: permisoId,
           }),
         );
-
-        await this.usuariosPermisosRepository.save(usuariosPermisos);
+        await usuariosPermisosRepo.save(usuariosPermisos);
       }
 
-      const payload = {
-        id: userSave.id,
-        email: userSave.userName,
-      };
+      await queryRunner.commitTransaction();
 
-      //datos del correo
-      /*       const token = this.jwtService.sign(payload, {
-              expiresIn: `${process.env.JWT_CONFIRMACION}`,
-            });
-            //Enviar correo de confirmacion
-            const name = `${userSave.nombre} ${userSave.apellidoPaterno} ${userSave.apellidoMaterno??''}`;
-            await this.emailService.sendConfirmationEmail(
-              userSave.userName,
-              name,
-              token,
-            ); */
-
-      //-----Registro en la bitacora----- SUCCESS
       const querylogger = { createUsuarioDto };
       await this.bitacoraLogger.logToBitacora(
         'Usuarios',
@@ -549,10 +538,8 @@ ORDER BY u.Id DESC
         EstatusEnumBitcora.SUCCESS,
       );
 
-      const { passwordHash: _, ...usuarioSinPassword } = newUser;
-
-      //Api response
-      const result: ApiCrudResponse = {
+      const { passwordHash: _p, ...usuarioSinPassword } = userSave;
+      return {
         status: 'success',
         message: 'Usuario creado correctamente',
         data: {
@@ -562,27 +549,31 @@ ORDER BY u.Id DESC
             '',
         },
       };
-      return result;
     } catch (error) {
-      //-----Registro en la bitacora----- SUCCESS
+      await queryRunner.rollbackTransaction();
+      console.error('[createUsuario]', (error as Error)?.message ?? error);
+
       const querylogger = { createUsuarioDto };
       await this.bitacoraLogger.logToBitacora(
         'Usuarios',
-        `Se ha creado un usuario con nombre: ${createUsuarioDto.nombre}.`,
+        `Error al crear usuario con nombre: ${createUsuarioDto.nombre}.`,
         'CREATE',
         querylogger,
         Number(idUser),
         EnumModulos.USUARIOS,
         EstatusEnumBitcora.ERROR,
-        error.message,
+        (error as Error)?.message,
       );
+
       if (error instanceof HttpException) {
         throw error;
       }
       throw new InternalServerErrorException({
         message: 'Ocurrió un error al intentar crear el usuario.',
-        error: error.message,
+        error: (error as Error)?.message,
       });
+    } finally {
+      await queryRunner.release();
     }
   }
 
@@ -765,62 +756,60 @@ ORDER BY u.Id DESC
     }
   }
 
-  //Actualizar usuario
   // ========================================
-  // 🔹 ACTUALIZAR DATOS DEL USUARIO
+  // 🔹 ACTUALIZAR DATOS DEL USUARIO (operación atómica: usuario + permisos en una transacción)
   // ========================================
   async updateUsuario(
     id: number,
     updateUsuarioDto: UpdateUsuarioDto,
     idUser: string,
   ): Promise<ApiCrudResponse> {
+    if (updateUsuarioDto.idCliente) {
+      const cliente = await this.clientesService.getOneCliente(
+        Number(updateUsuarioDto.idCliente),
+      );
+      if (!cliente) {
+        throw new BadRequestException(
+          'No se encontró el cliente especificado.',
+        );
+      }
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
     try {
-      const usuario = await this.usuarioRepository.findOne({
-        where: { id: id },
-      });
+      const usuarioRepo = queryRunner.manager.getRepository(Usuarios);
+      const usuariosPermisosRepo =
+        queryRunner.manager.getRepository(UsuariosPermisos);
+
+      const usuario = await usuarioRepo.findOne({ where: { id } });
       if (!usuario) {
         throw new NotFoundException(`No se encontró un usuario con ID: ${id}.`);
       }
 
-      if (updateUsuarioDto.idCliente) {
-        const cliente = await this.clientesService.getOneCliente(
-          Number(updateUsuarioDto.idCliente),
-        );
-        if (!cliente)
-          throw new BadRequestException(
-            'No se encontró el cliente especificado.',
-          );
-      }
-      updateUsuarioDto.emailConfirmado = EstatusEnum.ACTIVO;
+      const { permisosIds, ...restDto } = updateUsuarioDto;
+      const usuarioUpdate = { ...restDto, emailConfirmado: EstatusEnum.ACTIVO };
 
-      const { permisosIds, ...usuarioUpdate } = updateUsuarioDto;
-      // ----- ACTUALIZACIÓN DE USUARIO -----
-      await this.usuarioRepository.update(id, usuarioUpdate);
-      const newUser = await this.usuarioRepository.findOne({
-        where: { id: id },
-      });
+      await usuarioRepo.update(id, usuarioUpdate);
+
+      const newUser = await usuarioRepo.findOne({ where: { id } });
       if (!newUser) {
         throw new NotFoundException(`No se encontró un usuario con ID: ${id}.`);
       }
       const { passwordHash: _, ...usuarioSinPassword } = newUser;
 
-      // ----- ACTUALIZACIÓN DE PERMISOS -----
-      if (
-        updateUsuarioDto.permisosIds &&
-        Array.isArray(updateUsuarioDto.permisosIds)
-      ) {
-        const nuevaLista: number[] = updateUsuarioDto.permisosIds.map(Number); // lista nueva de permisos (ej. [1,EnumModulos.USUARIOS,3])
-
-        // Permisos actuales en BD
-        const creadaLista = await this.usuariosPermisosRepository.find({
+      if (permisosIds && Array.isArray(permisosIds)) {
+        const nuevaLista: number[] = permisosIds.map(Number);
+        const creadaLista = await usuariosPermisosRepo.find({
           where: { idUsuario: id },
         });
 
         const nuevaSet = new Set<number>(nuevaLista);
-        const creadaMap = new Map<number, any>(
-          creadaLista.map((p) => [Number(p.idPermiso), p] as const),
+        const creadaMap = new Map<number, UsuariosPermisos>(
+          creadaLista.map((p) => [Number(p.idPermiso), p]),
         );
-        // Unimos todos los ids (de la nueva lista y de la creada)
         const todosIds = new Set<number>([
           ...nuevaSet,
           ...creadaLista.map((p) => Number(p.idPermiso)),
@@ -831,45 +820,27 @@ ORDER BY u.Id DESC
           const creado = creadaMap.get(permisoId);
           if (enNueva && creado) {
             if (creado.estatus === 0) {
-              // Caso: existe en ambas y en creada estatus=0 → activar
-              await this.usuariosPermisosRepository.update(creado.id, {
-                estatus: 1,
-              });
-            } else {
-              // Caso: existe en ambas y ya está activo → no hacer nada
-              continue;
+              await usuariosPermisosRepo.update(creado.id, { estatus: 1 });
             }
           } else if (enNueva && !creado) {
-            // Caso: existe en nueva pero no en creada → crear
-
-            const existe = await this.usuariosPermisosRepository.findOne({
+            const existe = await usuariosPermisosRepo.findOne({
               where: { idUsuario: id, idPermiso: permisoId },
             });
             if (!existe) {
-              await this.usuariosPermisosRepository.save({
+              await usuariosPermisosRepo.save({
                 idUsuario: id,
                 idPermiso: permisoId,
                 estatus: 1,
               });
             }
-          } else if (!enNueva && creado) {
-            if (creado.estatus === 1) {
-              // Caso: no está en nueva pero sí en creada activo → desactivar
-              await this.usuariosPermisosRepository.update(creado.id, {
-                estatus: 0,
-              });
-            } else {
-              // Caso: ya estaba inactivo → nada que hacer
-              continue;
-            }
-          } else {
-            // Caso: no existe ni en nueva ni en creada → nada que hacer
-            continue;
+          } else if (!enNueva && creado && creado.estatus === 1) {
+            await usuariosPermisosRepo.update(creado.id, { estatus: 0 });
           }
         }
       }
 
-      // ----- Registro en la bitácora ----- SUCCESS
+      await queryRunner.commitTransaction();
+
       const querylogger = { updateUsuarioDto };
       await this.bitacoraLogger.logToBitacora(
         'Usuarios',
@@ -881,30 +852,30 @@ ORDER BY u.Id DESC
         EstatusEnumBitcora.SUCCESS,
       );
 
-      // ----- Api response -----
-      const result: ApiCrudResponse = {
+      return {
         status: 'success',
         message: 'El usuario ha sido actualizado correctamente.',
         data: {
-          id: id,
+          id,
           nombre:
             `${usuarioSinPassword.nombre} ${usuarioSinPassword.apellidoPaterno} ` ||
             '',
         },
       };
-      return result;
     } catch (error) {
-      // ----- Registro en la bitácora ----- ERROR
+      await queryRunner.rollbackTransaction();
+      console.error('[updateUsuario]', (error as Error)?.message ?? error);
+
       const querylogger = { updateUsuarioDto };
       await this.bitacoraLogger.logToBitacora(
         'Usuarios',
-        `Se actualizó el usuario con ID: ${id}.`,
+        `Error al actualizar usuario con ID: ${id}.`,
         'UPDATE',
         querylogger,
         Number(idUser),
         EnumModulos.USUARIOS,
         EstatusEnumBitcora.ERROR,
-        error.message,
+        (error as Error)?.message,
       );
 
       if (error instanceof HttpException) {
@@ -912,8 +883,10 @@ ORDER BY u.Id DESC
       }
       throw new InternalServerErrorException({
         message: 'Error al actualizar el usuario.',
-        error: error.message,
+        error: (error as Error)?.message,
       });
+    } finally {
+      await queryRunner.release();
     }
   }
 
