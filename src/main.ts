@@ -23,7 +23,7 @@ async function bootstrap() {
     .setDescription('Documentación de la API de Shift Control')
     .setVersion('1.0')
     .addServer('http://localhost:3003', 'Servidor Local')
-    .addServer('http://springtelecom.mx:3003', 'Servidor Spring')
+    .addServer('https://springtelecom.mx/shiftControlAPI', 'Servidor Spring')
     .addBearerAuth(
       {
         type: 'http',
