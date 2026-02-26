@@ -13,13 +13,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpStringResponseFilter());
 
   app.enableCors({
-    origin: [
-      'https://springtelecom.mx/shiftcontrolapp',
-      'https://springtelecom.mx:3003/',
-      'http://springtelecom.mx:3003/',
-      'http://localhost:3003',
-      'http://localhost:4200',
-    ], // Permitir todas las URLs; puedes poner un array de URLs específicas
+    origin: '*', // Permitir todas las URLs; puedes poner un array de URLs específicas
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
