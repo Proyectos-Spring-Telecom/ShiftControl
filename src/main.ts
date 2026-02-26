@@ -15,6 +15,7 @@ async function bootstrap() {
   app.enableCors({
     origin: [
       'https://springtelecom.mx/shiftcontrolapp',
+      'https://springtelecom.mx:3003/',
       'http://springtelecom.mx:3003/',
       'http://localhost:3003',
       'http://localhost:4200',
