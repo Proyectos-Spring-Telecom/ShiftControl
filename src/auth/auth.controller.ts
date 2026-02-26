@@ -56,8 +56,12 @@ export class AuthController {
 
   @Post('cambiar/accesso')
   @UseGuards(JwtAuthGuard)
-  async resetPassword(@Body() loginAuthResetDto: LoginAuthResetDto) {
-    return await this.authService.resetPassword(loginAuthResetDto);
+  async resetPassword(
+    @Body() loginAuthResetDto: LoginAuthResetDto,
+    @Request() req,
+  ) {
+    const idUser = req.user.userId;
+    return await this.authService.resetPassword(+idUser, loginAuthResetDto);
   }
 
   

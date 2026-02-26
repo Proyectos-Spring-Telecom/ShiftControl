@@ -20,7 +20,11 @@ import { LoginAuthResetDto } from './dto/login-recuperacion.dto';
 import { BitacoraLoggerService } from 'src/bitacora/bitacora.service';
 import { EstatusEnumBitcora } from 'src/common/ApiResponse';
 import { CodigoAutenticacion } from 'src/entities/CodigoAutenticacion';
-import { EstatusEnum, TipoCodigoAutenticacion } from 'src/common/estatus.enum';
+import {
+  EnumModulos,
+  EstatusEnum,
+  TipoCodigoAutenticacion,
+} from 'src/common/estatus.enum';
 import { CodigoPasajeroAutenticacion } from './dto/login-autenticacion.dto';
 import { horaDesfasada } from 'src/utils/correccion-hora';
 
@@ -571,27 +575,47 @@ Muchas gracias por su preferencia.`;
   // ========================================
   //actualizar contraseña
   // ========================================
-  async resetPassword(loginAuthResetDto: LoginAuthResetDto) {
+  // cambiar contraseña (usuario autenticado por token)
+  // ========================================
+  async resetPassword(idUser: number, loginAuthResetDto: LoginAuthResetDto) {
     try {
       const user = await this.usuariosRepository.findOne({
-        where: { userName: loginAuthResetDto.userName },
+        where: { id: idUser },
       });
       if (!user) throw new BadRequestException('Usuario no encontrado');
 
-      const hashedPassword = await bcrypt.hash(loginAuthResetDto.password, 10); //encriptamos la contraseña
-      loginAuthResetDto.password = hashedPassword;
-      await this.usuariosRepository.update(user.id, {
+      if (loginAuthResetDto.passwordNueva !== loginAuthResetDto.passwordConfirmacion) {
+        throw new BadRequestException(
+          'La contraseña y la confirmación deben coincidir.',
+        );
+      }
+
+      const coincideConAnterior = await bcrypt.compare(
+        loginAuthResetDto.passwordNueva,
+        user.passwordHash,
+      );
+      if (coincideConAnterior) {
+        throw new BadRequestException(
+          'La nueva contraseña no puede ser igual a la anterior.',
+        );
+      }
+
+      const hashedPassword = await bcrypt.hash(
+        loginAuthResetDto.passwordNueva,
+        10,
+      );
+      await this.usuariosRepository.update(idUser, {
         passwordHash: hashedPassword,
       });
-      //-----Registro en la bitacora----- SUCCESS
-      const querylogger = { id: user.id, EmailConfirmado: 1 };
+
+      const querylogger = { id: idUser };
       await this.bitacoraLogger.logToBitacora(
         'Usuarios',
-        `Se actualizo la contraseña del usuarios con ID: ${user.id}`,
-        'CREATE',
+        `Se actualizó la contraseña del usuario con ID: ${idUser}`,
+        'UPDATE',
         querylogger,
-        Number(user.id),
-        2,
+        idUser,
+        EnumModulos.USUARIOS,
         EstatusEnumBitcora.SUCCESS,
       );
       return `La contraseña del usuario ${user.nombre} ha sido actualizada exitosamente.`;
@@ -601,7 +625,7 @@ Muchas gracias por su preferencia.`;
       }
       throw new InternalServerErrorException({
         message: 'Ocurrió un error al actualizar contraseña del usuario.',
-        error: error.message,
+        error: (error as Error)?.message,
       });
     }
   }
