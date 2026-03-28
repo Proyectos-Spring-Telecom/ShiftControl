@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { UsuariosModule } from './usuarios/usuarios.module';
 import { AuthModule } from './auth/auth.module';
 import { BitacoraModule } from './bitacora/bitacora.module';
@@ -25,6 +27,7 @@ import Joi from 'joi';
         JWT_SECRET: Joi.string().required(),
         JWT_EXPIRES_IN: Joi.string().required(),
         JWT_CONFIRMACION: Joi.string().required(),
+        ENDPOINT_URL: Joi.string().uri().required(),
         AWS_REGION: Joi.string().required(),
         AWS_ACCESS_KEY_ID: Joi.string().required(),
         AWS_SECRET_ACCESS_KEY: Joi.string().required(),
@@ -34,6 +37,36 @@ import Joi from 'joi';
         SMTP: Joi.number().required(),
         E_MAIL: Joi.string().email().required(),
         MAIL_PASSWORD: Joi.string().required(),
+        THROTTLE_DEFAULT_LIMIT: Joi.number().default(100),
+        THROTTLE_DEFAULT_TTL_MS: Joi.number().default(60000),
+        THROTTLE_LOGIN_LIMIT: Joi.number().default(5),
+        THROTTLE_LOGIN_TTL_MS: Joi.number().default(60000),
+        THROTTLE_PIN_LIMIT: Joi.number().default(5),
+        THROTTLE_PIN_TTL_MS: Joi.number().default(60000),
+        THROTTLE_VERIFY_LIMIT: Joi.number().default(3),
+        THROTTLE_VERIFY_TTL_MS: Joi.number().default(60000),
+        THROTTLE_RECUPERACION_LIMIT: Joi.number().default(2),
+        THROTTLE_RECUPERACION_TTL_MS: Joi.number().default(60000),
+        THROTTLE_RECUPERACION_CONFIRMACION_LIMIT: Joi.number().default(5),
+        THROTTLE_RECUPERACION_CONFIRMACION_TTL_MS: Joi.number().default(60000),
+        THROTTLE_REFRESH_LIMIT: Joi.number().default(5),
+        THROTTLE_REFRESH_TTL_MS: Joi.number().default(60000),
+        THROTTLE_LOGOUT_LIMIT: Joi.number().default(5),
+        THROTTLE_LOGOUT_TTL_MS: Joi.number().default(60000),
+      }),
+    }),
+
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        throttlers: [
+          {
+            name: 'default',
+            ttl: config.get<number>('THROTTLE_DEFAULT_TTL_MS', 60000),
+            limit: config.get<number>('THROTTLE_DEFAULT_LIMIT', 100),
+          },
+        ],
       }),
     }),
 
@@ -76,6 +109,12 @@ import Joi from 'joi';
     MailModule,
 
     ModulosModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}

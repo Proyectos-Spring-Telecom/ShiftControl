@@ -2,45 +2,29 @@ import { ApiProperty } from '@nestjs/swagger';
 import {
   IsNotEmpty,
   IsString,
-  Matches,
   MinLength,
+  Matches,
   Validate,
-  ValidatorConstraint,
-  ValidatorConstraintInterface,
-  ValidationArguments,
 } from 'class-validator';
-
-@ValidatorConstraint({ name: 'MatchPassword', async: false })
-export class MatchPasswordConstraint implements ValidatorConstraintInterface {
-  validate(value: string, args: ValidationArguments) {
-    const [relatedPropertyName] = args.constraints;
-    const relatedValue = (args.object as Record<string, unknown>)[
-      relatedPropertyName
-    ];
-    return value === relatedValue;
-  }
-
-  defaultMessage() {
-    return 'La contraseña y la confirmación deben coincidir';
-  }
-}
+import { MatchPasswordConstraint } from 'src/common/validators/match-password.constraint';
 
 export class LoginAuthResetDto {
   @IsString()
-  @IsNotEmpty({ message: 'La nueva contraseña es obligatoria' })
+  @IsNotEmpty()
   @MinLength(6, { message: 'La contraseña debe tener al menos 6 caracteres' })
   @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[^\s]+$/u, {
     message:
-      'La contraseña debe contener al menos una letra mayúscula, una minúscula y un número',
+      'La contraseña debe contener al menos una minúscula, una mayúscula y un número, sin espacios',
   })
   @ApiProperty({
-    description: 'Nueva contraseña (mayúsculas, minúsculas y número)',
+    description: 'Nueva contraseña',
     example: 'NuevaPass123',
+    minLength: 6,
   })
   passwordNueva: string;
 
   @IsString()
-  @IsNotEmpty({ message: 'La confirmación de contraseña es obligatoria' })
+  @IsNotEmpty()
   @Validate(MatchPasswordConstraint, ['passwordNueva'])
   @ApiProperty({
     description: 'Confirmación de la nueva contraseña',
