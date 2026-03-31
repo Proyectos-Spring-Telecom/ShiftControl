@@ -158,7 +158,7 @@ export class AuthController {
   })
   async login(
     @Body() dto: LoginAuthDto,
-    @Query('Nombres') nombres: string | undefined,
+    @Query('Nombres') nombres: string | 'SIT' | 'NXT',
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
