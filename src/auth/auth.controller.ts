@@ -126,7 +126,7 @@ export class AuthController {
   })
   async loginPin(
     @Body() dto: LoginAuthPinDto,
-    @Query('Nombres') nombres: string | 'NXT',
+    @Query('Nombres') nombres: string | 'SIT' | 'NXT',
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
