@@ -21,6 +21,20 @@ import {
   EnumModulos,
 } from 'src/common/estatus.enum';
 
+const SQL_CLIENTES_BASE = `
+  Id AS id,
+  IdPadre AS idPadre,
+  IdCliente AS idClienteNext`;
+
+const SQL_CLIENTES_LIST_LIGHT = `
+  Id AS id,
+  IdPadre AS idPadre,
+  IdCliente AS idClienteNext,
+  CAST(NULL AS CHAR(100)) AS nombre,
+  CAST(NULL AS CHAR(100)) AS apellidoPaterno,
+  CAST(NULL AS CHAR(100)) AS apellidoMaterno,
+  CAST(NULL AS CHAR(500)) AS logotipo`;
+
 @Injectable()
 export class ClientesService {
   constructor(
@@ -37,27 +51,16 @@ export class ClientesService {
     idUser: number,
   ): Promise<ApiCrudResponse> {
     try {
-      //Buscamos al cliente y verificamos
-      const clienteCreate = await this.clienteRepository.findOne({
-        where: {
-          rfc: createClienteDto.rfc,
-        },
+      const clienteData = this.clienteRepository.create({
+        idPadre: createClienteDto.idPadre ?? null,
+        idCliente: createClienteDto.idCliente ?? null,
       });
-      if (clienteCreate) {
-        throw new BadRequestException(
-          `Cliente ya registrado con RFC: ${createClienteDto.rfc}. Por favor, ingrese un RFC diferente.`,
-        );
-      }
-
-      //Creamos el nuevo cliente
-      const clienteData = await this.clienteRepository.create(createClienteDto);
       const clienteCreado = await this.clienteRepository.save(clienteData);
 
-      //-----Registro en la bitacora----- SUCCESS
       const querylogger = { createClienteDto };
       await this.bitacoraLogger.logToBitacora(
         'Clientes',
-        `Cliente creado correctamente con RFC: ${createClienteDto.rfc}.`,
+        `Cliente sombra creado Id=${clienteCreado.id} IdCliente=${clienteCreado.idCliente ?? 'null'}.`,
         'CREATE',
         querylogger,
         idUser,
@@ -65,24 +68,21 @@ export class ClientesService {
         EstatusEnumBitcora.SUCCESS,
       );
 
-
-      //Api response
       const result: ApiCrudResponse = {
         status: 'success',
         message: 'El cliente ha sido creado correctamente.',
         data: {
           id: clienteCreado.id,
-          nombre:
-            `${clienteCreado.nombre} ${clienteCreado.apellidoPaterno} ` || '',
+          idClienteNext: clienteCreado.idCliente,
+          idPadre: clienteCreado.idPadre,
         },
       };
       return result;
     } catch (error) {
-      //-----Registro en la bitacora----- ERROR
       const querylogger = { createClienteDto };
       await this.bitacoraLogger.logToBitacora(
         'Clientes',
-        `Cliente creado correctamente con RFC: ${createClienteDto.rfc}.`,
+        `Error al crear cliente sombra.`,
         'CREATE',
         querylogger,
         idUser,
@@ -158,35 +158,10 @@ export class ClientesService {
       let clientes;
       switch (rol) {
         case 1:
-          // Usuario SuperAdministrador - obtiene todas las regiones
           clientes = await this.clienteRepository.query(
             `
 SELECT
-  Id AS id,
-  RFC AS rfc,
-  TipoPersona AS tipoPersona,
-  Nombre AS nombre,
-  ApellidoPaterno AS apellidoPaterno,
-  ApellidoMaterno AS apellidoMaterno,
-  Telefono AS telefono,
-  Correo AS correo,
-  Estado AS estado,
-  Municipio AS municipio,
-  Colonia AS colonia,
-  Calle AS calle,
-  EntreCalles AS entreCalles,
-  NumeroExterior AS numeroExterior,
-  NumeroInterior AS numeroInterior,
-  CP AS cp,
-  NombreEncargado AS nombreEncargado,
-  TelefonoEncargado AS telefonoEncargado,
-  CorreoEncargado AS correoEncargado,
-  ConstanciaSituacionFiscal AS constanciaSituacionFiscal,
-  ComprobanteDomicilio AS comprobanteDomicilio,
-  ActaConstitutiva AS actaConstitutiva,
-  Logotipo AS logotipo,
-  Estatus AS estatus
-  
+${SQL_CLIENTES_BASE}
 FROM Clientes
 ORDER BY Id ASC
   LIMIT ? OFFSET ?;
@@ -209,33 +184,9 @@ FROM Clientes
           clientes = await this.clienteRepository.query(
             `
 SELECT
-  Id AS id,
-  RFC AS rfc,
-  TipoPersona AS tipoPersona,
-  Nombre AS nombre,
-  ApellidoPaterno AS apellidoPaterno,
-  ApellidoMaterno AS apellidoMaterno,
-  Telefono AS telefono,
-  Correo AS correo,
-  Estado AS estado,
-  Municipio AS municipio,
-  Colonia AS colonia,
-  Calle AS calle,
-  EntreCalles AS entreCalles,
-  NumeroExterior AS numeroExterior,
-  NumeroInterior AS numeroInterior,
-  CP AS cp,
-  NombreEncargado AS nombreEncargado,
-  TelefonoEncargado AS telefonoEncargado,
-  CorreoEncargado AS correoEncargado,
-  ConstanciaSituacionFiscal AS constanciaSituacionFiscal,
-  ComprobanteDomicilio AS comprobanteDomicilio,
-  ActaConstitutiva AS actaConstitutiva,
-  Logotipo AS logotipo,
-  Estatus AS estatus
-  
+${SQL_CLIENTES_BASE}
 FROM Clientes
-WHERE Id IN (${placeholders})   -- 🔹 aquí colocas el ID del cliente que quieres consultar
+WHERE Id IN (${placeholders})
 ORDER BY Id ASC
   LIMIT ? OFFSET ?;
             `,
@@ -295,36 +246,24 @@ ORDER BY Id ASC
       let clientes;
       switch (rol) {
         case 1:
-          // Usuario SuperAdministrador - obtiene todas las regiones
           clientes = await this.clienteRepository.query(
             `
 SELECT
-  Id AS id,
-  Nombre AS nombre,
-  ApellidoPaterno AS apellidoPaterno,
-  ApellidoMaterno AS apellidoMaterno,
-  Logotipo AS logotipo
+${SQL_CLIENTES_LIST_LIGHT}
 FROM Clientes
-WHERE Estatus = 1
 ORDER BY Id ASC;
             `,
           );
           break;
 
         default:
-          // Usuarios normales - solo sus regiones asignadas
           const { ids, placeholders } = await this.clienteHijos(cliente);
           clientes = await this.clienteRepository.query(
             `
 SELECT
-  Id AS id,
-  Nombre AS nombre,
-  ApellidoPaterno AS apellidoPaterno,
-  ApellidoMaterno AS apellidoMaterno,
-  Logotipo AS logotipo
+${SQL_CLIENTES_LIST_LIGHT}
 FROM Clientes
-WHERE Id IN (${placeholders})  -- 🔹 aquí colocas el ID del cliente que quieres consultar
-  AND Estatus = 1
+WHERE Id IN (${placeholders})
 ORDER BY Id ASC;
 
             `,
@@ -368,13 +307,9 @@ ORDER BY Id ASC;
       clientes = await this.clienteRepository.query(
         `
 SELECT
-  Id AS id,
-  Nombre AS nombre,
-  ApellidoPaterno AS apellidoPaterno,
-  ApellidoMaterno AS apellidoMaterno
+${SQL_CLIENTES_LIST_LIGHT}
 FROM Clientes
-WHERE Id IN (${placeholders})  -- 🔹 aquí colocas el ID del cliente que quieres consultar
-  
+WHERE Id IN (${placeholders})
 ORDER BY Id ASC
 
             `,
@@ -445,10 +380,17 @@ ORDER BY Id ASC
         );
       }
 
-      //Actualizamos datos del cliente
-      await this.clienteRepository.update(id, updateClienteDto);
+      const patch: Partial<Clientes> = {};
+      if (updateClienteDto.idPadre !== undefined) {
+        patch.idPadre = updateClienteDto.idPadre;
+      }
+      if (updateClienteDto.idCliente !== undefined) {
+        patch.idCliente = updateClienteDto.idCliente;
+      }
+      if (Object.keys(patch).length > 0) {
+        await this.clienteRepository.update(id, patch);
+      }
 
-      //-----Registro en la bitacora----- SUCCESS
       const querylogger = { updateClienteDto };
       await this.bitacoraLogger.logToBitacora(
         'Clientes',
@@ -460,18 +402,16 @@ ORDER BY Id ASC
         EstatusEnumBitcora.SUCCESS,
       );
 
-      //buscamos el cliente ya actualizados
       const clientefind = await this.clienteRepository.findOne({
         where: { id: id },
       });
-      //Api response
       const result: ApiCrudResponse = {
         status: 'success',
         message: 'Cliente actualizado correctamente.',
         data: {
           id: id,
-          nombre:
-            `${clientefind?.nombre} ${clientefind?.apellidoPaterno} ` || '',
+          idClienteNext: clientefind?.idCliente,
+          idPadre: clientefind?.idPadre,
         },
       };
       return result;
@@ -508,75 +448,13 @@ ORDER BY Id ASC
     cliente: number,
     updateClienteEstatusDto: UpdateClienteEstatusDto,
   ): Promise<ApiCrudResponse> {
-    try {
-      //Buscamos al cliente y verificamos
-      const cliente = await this.clienteRepository.findOne({
-        where: { id: id },
-      });
-      if (!cliente) {
-        throw new NotFoundException(`Cliente con ID: ${id} no encontrado`);
-      }
-
-      //Obtenemos los clientes hijos
-      const { ids, placeholders } = await this.clienteHijos(id);
-
-      //Obtenemos el valor de estatus
-      const estatus = updateClienteEstatusDto.estatus;
-
-      //Hacemos eliminado logico al cliente padre e hijos
-      await this.clienteRepository.query(
-        `
-        UPDATE Clientes
-        SET Estatus = ${estatus}
-        WHERE Id IN (${placeholders})   -- 🔹 aquí colocas el ID del cliente que quieres consultar
-        `,
-        [...ids],
-      );
-
-      //-----Registro en la bitacora----- SUCCESS
-      const querylogger = { updateClienteEstatusDto };
-      await this.bitacoraLogger.logToBitacora(
-        'Clientes',
-        `El estatus del cliente con ID ${id} se modificó exitosamente a: ${estatus}.`,
-        'UPDATE',
-        querylogger,
-        idUser,
-        EnumModulos.CLIENTES,
-        EstatusEnumBitcora.SUCCESS,
-      );
-
-      //Api response
-      const result: ApiCrudResponse = {
-        status: 'success',
-        message: 'Estatus del cliente actualizado correctamente.',
-        estatus: { estatus: estatus },
-        data: {
-          id: id,
-          nombre: `${cliente.nombre} ${cliente.apellidoPaterno} ` || '',
-        },
-      };
-      return result;
-    } catch (error) {
-      //-----Registro en la bitacora----- ERROR
-      const querylogger = { updateClienteEstatusDto };
-      await this.bitacoraLogger.logToBitacora(
-        'Clientes',
-        `Se cambió el estatus del cliente con ID: ${id} a estatus: ${updateClienteEstatusDto.estatus}.`,
-        'UPDATE',
-        querylogger,
-        idUser,
-        EnumModulos.CLIENTES,
-        EstatusEnumBitcora.ERROR,
-        error.message,
-      );
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new InternalServerErrorException({
-        message: `Error al cambiar el estatus del cliente con ID: ${id}.`,
-        error: error.message,
-      });
-    }
+    void id;
+    void idUser;
+    void cliente;
+    void updateClienteEstatusDto;
+    throw new BadRequestException(
+      'La tabla Clientes no incluye Estatus; gestione estado en Next.',
+    );
   }
 
   // ========================================
@@ -587,75 +465,11 @@ ORDER BY Id ASC
     idUser: number,
     cliente: number,
   ): Promise<ApiCrudResponse> {
-    try {
-
-      //Buscamos al cliente y verificamos
-      const clienteEliminar = await this.clienteRepository.findOne({
-        where: { id: id },
-      });
-      if (!clienteEliminar) {
-        throw new NotFoundException(
-          `El cliente con ID: ${id} no fue encontrado.`,
-        );
-      }
-
-      //Obtenemos los clientes hijos
-      const { ids, placeholders } = await this.clienteHijos(id);
-
-      //Hacemos eliminado logico al cliente padre e hijos
-      await this.clienteRepository.query(
-        `
-        UPDATE Clientes
-        SET Estatus = 0
-        WHERE Id IN (${placeholders})   -- 🔹 aquí colocas el ID del cliente que quieres consultar
-        `,
-        [...ids],
-      );
-
-      //-----Registro en la bitacora----- SUCCESS
-      const querylogger = { id: id, estatus: 0 };
-      await this.bitacoraLogger.logToBitacora(
-        'Clientes',
-        `Se eliminó el cliente con ID: ${id}.`,
-        'UPDATE',
-        querylogger,
-        Number(idUser),
-        EnumModulos.CLIENTES,
-        EstatusEnumBitcora.SUCCESS,
-      );
-
-      //Api response
-      const result: ApiCrudResponse = {
-        status: 'success',
-        message: 'El cliente fue eliminado correctamente.',
-        data: {
-          id: id,
-          nombre:
-            `${clienteEliminar.nombre} ${clienteEliminar.apellidoPaterno} ` ||
-            '',
-        },
-      };
-      return result;
-    } catch (error) {
-      //-----Registro en la bitacora----- ERROR
-      const querylogger = { id: id, estatus: 0 };
-      await this.bitacoraLogger.logToBitacora(
-        'Clientes',
-        `Se eliminó el cliente con ID: ${id}.`,
-        'UPDATE',
-        querylogger,
-        Number(idUser),
-        EnumModulos.CLIENTES,
-        EstatusEnumBitcora.ERROR,
-        error.message,
-      );
-      if (error instanceof HttpException) {
-        throw error;
-      }
-      throw new InternalServerErrorException({
-        message: `Error al eliminar el cliente con ID: ${id}.`,
-        error: error.message,
-      });
-    }
+    void id;
+    void idUser;
+    void cliente;
+    throw new BadRequestException(
+      'Eliminación lógica no disponible en esquema sombra Clientes; use Next.',
+    );
   }
 }

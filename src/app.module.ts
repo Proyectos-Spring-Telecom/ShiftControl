@@ -3,16 +3,14 @@ import { APP_GUARD } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { UsuariosModule } from './usuarios/usuarios.module';
 import { AuthModule } from './auth/auth.module';
 import { BitacoraModule } from './bitacora/bitacora.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ModulosModule } from './modulos/modulos.module';
-import { PermisosModule } from './permisos/permisos.module';
-import { RolesModule } from './roles/roles.module';
 import { S3Module } from './s3/s3.module';
 import { MailModule } from './mail/mail.module';
 import Joi from 'joi';
+
 
 @Module({
   imports: [
@@ -92,17 +90,11 @@ import Joi from 'joi';
       }),
     }),
 
-    UsuariosModule,
-
     AuthModule,
 
     BitacoraModule,
 
     ClientesModule,
-
-    PermisosModule,
-
-    RolesModule,
 
     S3Module,
 

@@ -4,11 +4,16 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
+import { BitacoraModule } from 'src/bitacora/bitacora.module';
+import { Usuarios } from 'src/entities/Usuarios';
+import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([Usuarios]),
     ConfigModule,
     EndpointProxyModule,
+    BitacoraModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

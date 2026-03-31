@@ -62,13 +62,15 @@ SELECT
   b.Estatus AS estatus,
   b.Error AS error,
 
-  -- Usuario
+  -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.Nombre AS nombreUsuario,
-  u.ApellidoPaterno AS apellidoPaternoUsuario,
-  u.ApellidoMaterno AS apellidoMaternoUsuario,
-  u.UserName AS UserNameUsuario,
-  u.Estatus AS estatusUsuario,
+  u.IdUsuario AS idUsuarioNext,
+  u.IdCliente AS idClienteUsuario,
+  CAST(NULL AS CHAR(100)) AS nombreUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoMaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS UserNameUsuario,
+  CAST(NULL AS SIGNED) AS estatusUsuario,
 
   -- Módulo
   m.Id AS idModulo,
@@ -102,13 +104,15 @@ SELECT
   b.Estatus AS estatus,
   b.Error AS error,
 
-  -- Usuario
+  -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.Nombre AS nombreUsuario,
-  u.ApellidoPaterno AS apellidoPaternoUsuario,
-  u.ApellidoMaterno AS apellidoMaternoUsuario,
-  u.UserName AS UserNameUsuario,
-  u.Estatus AS estatusUsuario,
+  u.IdUsuario AS idUsuarioNext,
+  u.IdCliente AS idClienteUsuario,
+  CAST(NULL AS CHAR(100)) AS nombreUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoMaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS UserNameUsuario,
+  CAST(NULL AS SIGNED) AS estatusUsuario,
 
   -- Módulo
   m.Id AS idModulo,
@@ -170,13 +174,15 @@ SELECT
   b.Estatus AS estatus,
   b.Error AS error,
 
-  -- Usuario
+  -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.Nombre AS nombreUsuario,
-  u.ApellidoPaterno AS apellidoPaternoUsuario,
-  u.ApellidoMaterno AS apellidoMaternoUsuario,
-  u.UserName AS UserNameUsuario,
-  u.Estatus AS estatusUsuario,
+  u.IdUsuario AS idUsuarioNext,
+  u.IdCliente AS idClienteUsuario,
+  CAST(NULL AS CHAR(100)) AS nombreUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoMaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS UserNameUsuario,
+  CAST(NULL AS SIGNED) AS estatusUsuario,
 
   -- Módulo
   m.Id AS idModulo,
@@ -222,13 +228,15 @@ SELECT
   b.Estatus AS estatus,
   b.Error AS error,
 
-  -- Usuario
+  -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.Nombre AS nombreUsuario,
-  u.ApellidoPaterno AS apellidoPaternoUsuario,
-  u.ApellidoMaterno AS apellidoMaternoUsuario,
-  u.UserName AS UserNameUsuario,
-  u.Estatus AS estatusUsuario,
+  u.IdUsuario AS idUsuarioNext,
+  u.IdCliente AS idClienteUsuario,
+  CAST(NULL AS CHAR(100)) AS nombreUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoMaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS UserNameUsuario,
+  CAST(NULL AS SIGNED) AS estatusUsuario,
 
   -- Módulo
   m.Id AS idModulo,
@@ -303,13 +311,15 @@ SELECT
   b.Estatus AS estatus,
   b.Error AS error,
 
-  -- Usuario
+  -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.Nombre AS nombreUsuario,
-  u.ApellidoPaterno AS apellidoPaternoUsuario,
-  u.ApellidoMaterno AS apellidoMaternoUsuario,
-  u.UserName AS UserNameUsuario,
-  u.Estatus AS estatusUsuario,
+  u.IdUsuario AS idUsuarioNext,
+  u.IdCliente AS idClienteUsuario,
+  CAST(NULL AS CHAR(100)) AS nombreUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS apellidoMaternoUsuario,
+  CAST(NULL AS CHAR(100)) AS UserNameUsuario,
+  CAST(NULL AS SIGNED) AS estatusUsuario,
 
   -- Módulo
   m.Id AS idModulo,

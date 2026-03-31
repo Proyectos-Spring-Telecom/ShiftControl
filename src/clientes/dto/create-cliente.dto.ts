@@ -15,16 +15,23 @@ export class CreateClienteDto {
   @ApiProperty({ description: "Id del cliente padre", example: 1, required: false })
   idPadre?: number;
 
-  @IsString()
-  @IsNotEmpty({ message: "El RFC es obligatorio" })
-  @MaxLength(16, { message: "El RFC no puede exceder los 16 caracteres" })
-  @ApiProperty({ description: "RFC del cliente", example: "XAXX010101000" })
-  rfc: string;
+  /** Id del cliente maestro en Next (referencia lógica; sin FK). */
+  @IsOptional()
+  @IsInt()
+  @ApiProperty({ description: "Id cliente en sistema maestro (Next)", required: false })
+  idCliente?: number;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(16)
+  @ApiProperty({ description: "RFC (solo referencia; maestro en Next)", example: "XAXX010101000", required: false })
+  rfc?: string;
+
+  @IsOptional()
   @IsInt({ message: "TipoPersona debe ser un número entero (1=Física, 2=Moral)" })
   @IsIn([1, 2], { message: "TipoPersona debe ser 1 (Física) o 2 (Moral)" })
-  @ApiProperty({ description: "Tipo de persona (1=Física, 2=Moral)", example: 1 })
-  tipoPersona: number;
+  @ApiProperty({ description: "Tipo de persona (1=Física, 2=Moral)", example: 1, required: false })
+  tipoPersona?: number;
 
   @IsOptional()
   @IsString()

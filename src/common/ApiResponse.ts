@@ -27,7 +27,10 @@ export interface ApiCrudResponse {
 
 export interface ApiData {
   id: number;
-  nombre: string;
+  nombre?: string;
+  /** Cliente maestro (Next) en tabla sombra Clientes */
+  idClienteNext?: number | null;
+  idPadre?: number | null;
 }
 
 export interface ApiEstatus {

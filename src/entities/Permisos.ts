@@ -1,19 +1,14 @@
 import {
   Column,
   Entity,
-  Index,
   JoinColumn,
   ManyToOne,
-  OneToMany,
   PrimaryGeneratedColumn,
 } from "typeorm";
 import { Modulos } from "./Modulos";
-import { UsuariosPermisos } from "./UsuariosPermisos";
 import { applySchema } from "src/common/apply-schema.decorator";
 
 @applySchema
-@Index("UQ_Permisos_IdModulo_Nombre", ["nombre", "idModulo"], { unique: true })
-@Index("FK_Permisos_Modulo", ["idModulo"], {})
 @Entity("Permisos")
 export class Permisos {
   @PrimaryGeneratedColumn({ type: "bigint", name: "Id" })
@@ -25,35 +20,16 @@ export class Permisos {
   @Column("varchar", { name: "Descripcion", nullable: true, length: 255 })
   descripcion: string | null;
 
-  @Column("datetime", {
-    name: "FechaCreacion",
-    default: () => "CURRENT_TIMESTAMP",
-  })
-  fechaCreacion: Date;
-
-  @Column("datetime", {
-    name: "FechaActualizacion",
-    default: () => "CURRENT_TIMESTAMP",
-    onUpdate: "CURRENT_TIMESTAMP",
-  })
-  fechaActualizacion: Date;
+  @Column("bigint", { name: "IdModulo" })
+  idModulo: number;
 
   @Column("tinyint", { name: "Estatus", default: () => "'1'" })
   estatus: number;
 
-  @Column("bigint", { name: "IdModulo" })
-  idModulo: number;
-
-  @ManyToOne(() => Modulos, (modulos) => modulos.permisos, {
+  @ManyToOne(() => Modulos, (m) => m.permisos, {
     onDelete: "NO ACTION",
     onUpdate: "NO ACTION",
   })
   @JoinColumn([{ name: "IdModulo", referencedColumnName: "id" }])
   idModulo2: Modulos;
-
-  @OneToMany(
-    () => UsuariosPermisos,
-    (usuariosPermisos) => usuariosPermisos.idPermiso2
-  )
-  usuariosPermisos: UsuariosPermisos[];
 }

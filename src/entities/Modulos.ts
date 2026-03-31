@@ -16,7 +16,7 @@ export class Modulos {
   @PrimaryGeneratedColumn({ type: "bigint", name: "Id" })
   id: number;
 
-  @Column("varchar", { name: "Nombre", unique: true, length: 100 })
+  @Column("varchar", { name: "Nombre", length: 100 })
   nombre: string;
 
   @Column("varchar", { name: "Descripcion", nullable: true, length: 255 })

@@ -23,6 +23,11 @@ import { LoginAuthResetDto } from './dto/login-recuperacion.dto';
 import { LoginRefreshTokenDto } from './dto/login-refresh-token.dto';
 import { CodigoPasajeroAutenticacion } from './dto/login-autenticacion.dto';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
+import { JwtService } from '@nestjs/jwt';
+import { JwtAccessPayload } from './types/jwt-access-payload';
+import { Usuarios } from 'src/entities/Usuarios';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 const THROTTLE_LOGIN_LIMIT = Number(process.env.THROTTLE_LOGIN_LIMIT ?? 5);
 const THROTTLE_LOGIN_TTL_MS = Number(process.env.THROTTLE_LOGIN_TTL_MS ?? 60000);
@@ -52,11 +57,81 @@ const THROTTLE_LOGOUT_TTL_MS = Number(process.env.THROTTLE_LOGOUT_TTL_MS ?? 6000
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private readonly endpointProxy: EndpointProxyService) {}
+  constructor(
+    private readonly endpointProxy: EndpointProxyService,
+    private readonly jwtService: JwtService,
+    @InjectRepository(Usuarios)
+    private readonly usuariosRepository: Repository<Usuarios>,
+  ) {}
 
   private jwtUserId(req: Request): number | undefined {
     const u = (req as Request & { user?: { userId?: number } }).user;
     return u?.userId;
+  }
+
+  /**
+   * Lee `id` e `idCliente` del access token en la respuesta de login/loginPin (sin verificar firma).
+   */
+  private extractUserIdAndClienteFromLoginData(data: unknown): {
+    userId: number | undefined;
+    idCliente: number | undefined;
+    rol: number | undefined;
+  } {
+    if (!data || typeof data !== 'object' || !('token' in data)) {
+      return { userId: undefined, idCliente: undefined, rol: undefined };
+    }
+    const token = (data as { token?: unknown }).token;
+    if (typeof token !== 'string' || token.length === 0) {
+      return { userId: undefined, idCliente: undefined, rol: undefined };
+    }
+    const decoded = this.jwtService.decode<JwtAccessPayload>(token, {
+      json: true,
+    });
+    if (!decoded || typeof decoded !== 'object') {
+      return { userId: undefined, idCliente: undefined, rol: undefined };
+    }
+    const userIdNum = Number(decoded.id);
+    const idClienteNum = Number(decoded.idCliente);
+    const rolNum = Number(decoded.rol);
+    return {
+      userId: Number.isFinite(userIdNum) ? userIdNum : undefined,
+      idCliente: Number.isFinite(idClienteNum) ? idClienteNum : undefined,
+      rol: Number.isFinite(rolNum) ? rolNum : undefined,
+    };
+  }
+
+  /** Crea fila sombra si no existe (IdUsuario = id en Next, IdCliente = tenant). */
+  private async ensureUsuarioShadow(
+    idUsuario: number,
+    idCliente: number,
+    rol?: number,
+  ): Promise<void> {
+    const existing = await this.usuariosRepository.findOne({
+      where: { idUsuario: idUsuario, idCliente },
+    });
+    if (!existing) {
+      await this.usuariosRepository.save(
+        this.usuariosRepository.create({
+          idUsuario: idUsuario,
+          idCliente,
+          idRol: rol ?? null,
+          idSolucion: 2,
+          idClienteGeneral: 2,
+        }),
+      );
+      this.logger.log(
+        `Usuarios sombra creada idUsuario=${idUsuario} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
+      );
+      return;
+    }
+
+    if (rol !== undefined && existing.idRol !== rol) {
+      existing.idRol = rol;
+      await this.usuariosRepository.save(existing);
+      this.logger.log(
+        `Usuarios sombra actualizada idUsuario=${idUsuario} idCliente=${idCliente} rol=${rol}`,
+      );
+    }
   }
 
   @Post('usuario/solicitud/recuperacion')
@@ -141,6 +216,15 @@ export class AuthController {
     this.logger.log(
       `Proxy ← POST login/operador/accesso/nip status=${r.status}`,
     );
+    const { userId, idCliente, rol } =
+      this.extractUserIdAndClienteFromLoginData(r.data);
+    const ok2xx = r.status >= 200 && r.status < 300;
+    if (ok2xx && userId !== undefined && idCliente !== undefined) {
+      this.logger.log(
+        `loginPin claims userId=${userId} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
+      );
+      await this.ensureUsuarioShadow(userId, idCliente, rol);
+    }
     res.status(r.status);
     return r.data;
   }
@@ -167,6 +251,19 @@ export class AuthController {
     );
     const r = await this.endpointProxy.forwardPost('login', dto, req);
     this.logger.log(`Proxy ← POST login status=${r.status}`);
+    const { userId, idCliente, rol } =
+      this.extractUserIdAndClienteFromLoginData(r.data);
+    const ok2xx = r.status >= 200 && r.status < 300;
+    if (ok2xx && userId !== undefined && idCliente !== undefined) {
+      this.logger.log(
+        `login claims userId=${userId} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
+      );
+      await this.ensureUsuarioShadow(userId, idCliente, rol);
+    } else if (ok2xx) {
+      this.logger.warn(
+        'login: respuesta OK sin id/idCliente decodificables del access token',
+      );
+    }
     res.status(r.status);
     return r.data;
   }

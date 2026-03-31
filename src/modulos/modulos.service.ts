@@ -30,6 +30,7 @@ export class ModulosService {
     private readonly bitacoraLogger: BitacoraLoggerService,
   ) {}
 
+  
   async create(
     createModuloDto: CreateModuloDto,
     idUser: number,
@@ -288,7 +289,7 @@ export class ModulosService {
         await this.moduloRepository.update(id, modulo);
   
         const permisos = await this.permisosRepository.find({
-          where: { id: id },
+          where: { idModulo: id },
         });
         if (permisos.length > 0) {
           for (const permiso of permisos) {
