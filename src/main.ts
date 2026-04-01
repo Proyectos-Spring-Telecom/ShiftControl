@@ -38,7 +38,6 @@ async function bootstrap() {
     .addTag('Autenticación', 'Endpoints de autenticación y registro')
     .addTag('Bitácora', 'Registro de actividades del sistema')
     .addTag('Clientes', 'Gestión de clientes')
-    .addTag('Mail', 'Servicio de correo electrónico')
     .addTag('Modulos', 'Gestión de módulos del sistema')
     .addTag('Permisos', 'Gestión de permisos')
     .addTag('S3 - archivos', 'Carga de archivos a S3')

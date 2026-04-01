@@ -8,7 +8,6 @@ import { BitacoraModule } from './bitacora/bitacora.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ModulosModule } from './modulos/modulos.module';
 import { S3Module } from './s3/s3.module';
-import { MailModule } from './mail/mail.module';
 import Joi from 'joi';
 
 
@@ -97,8 +96,6 @@ import Joi from 'joi';
     ClientesModule,
 
     S3Module,
-
-    MailModule,
 
     ModulosModule,
   ],
