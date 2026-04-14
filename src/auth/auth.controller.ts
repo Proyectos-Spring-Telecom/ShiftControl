@@ -26,6 +26,7 @@ import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { JwtService } from '@nestjs/jwt';
 import { JwtAccessPayload } from './types/jwt-access-payload';
 import { Usuarios } from 'src/entities/Usuarios';
+import { Clientes } from 'src/entities/Clientes';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 
@@ -62,6 +63,8 @@ export class AuthController {
     private readonly jwtService: JwtService,
     @InjectRepository(Usuarios)
     private readonly usuariosRepository: Repository<Usuarios>,
+    @InjectRepository(Clientes)
+    private readonly clientesRepository: Repository<Clientes>,
   ) {}
 
   private jwtUserId(req: Request): number | undefined {
@@ -100,19 +103,34 @@ export class AuthController {
     };
   }
 
-  /** Crea fila sombra si no existe (IdUsuario = id en Next, IdCliente = tenant). */
+  private async ensureClienteShadow(idCliente: number): Promise<void> {
+    const existing = await this.clientesRepository.findOne({
+      where: { id: idCliente },
+    });
+    if (!existing) {
+      await this.clientesRepository.save(
+        this.clientesRepository.create({
+          id: idCliente,
+          idPadre: null,
+        }),
+      );
+      this.logger.log(`Cliente sombra creado id=${idCliente}`);
+    }
+  }
+
+  /** Crea fila sombra si no existe (Id = Next.Usuarios.Id, IdCliente = tenant). */
   private async ensureUsuarioShadow(
     idUsuario: number,
     idCliente: number,
     rol?: number,
   ): Promise<void> {
     const existing = await this.usuariosRepository.findOne({
-      where: { idUsuario: idUsuario, idCliente },
+      where: { id: idUsuario },
     });
     if (!existing) {
       await this.usuariosRepository.save(
         this.usuariosRepository.create({
-          idUsuario: idUsuario,
+          id: idUsuario,
           idCliente,
           idRol: rol ?? null,
           idSolucion: 2,
@@ -120,16 +138,24 @@ export class AuthController {
         }),
       );
       this.logger.log(
-        `Usuarios sombra creada idUsuario=${idUsuario} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
+        `Usuario sombra creado id=${idUsuario} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
       );
       return;
     }
 
+    let changed = false;
     if (rol !== undefined && existing.idRol !== rol) {
       existing.idRol = rol;
+      changed = true;
+    }
+    if (existing.idCliente !== idCliente) {
+      existing.idCliente = idCliente;
+      changed = true;
+    }
+    if (changed) {
       await this.usuariosRepository.save(existing);
       this.logger.log(
-        `Usuarios sombra actualizada idUsuario=${idUsuario} idCliente=${idCliente} rol=${rol}`,
+        `Usuario sombra actualizado id=${idUsuario} idCliente=${idCliente} rol=${rol ?? existing.idRol ?? 'n/a'}`,
       );
     }
   }
@@ -223,6 +249,7 @@ export class AuthController {
       this.logger.log(
         `loginPin claims userId=${userId} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
       );
+      await this.ensureClienteShadow(idCliente);
       await this.ensureUsuarioShadow(userId, idCliente, rol);
     }
     res.status(r.status);
@@ -258,6 +285,7 @@ export class AuthController {
       this.logger.log(
         `login claims userId=${userId} idCliente=${idCliente} rol=${rol ?? 'n/a'}`,
       );
+      await this.ensureClienteShadow(idCliente);
       await this.ensureUsuarioShadow(userId, idCliente, rol);
     } else if (ok2xx) {
       this.logger.warn(

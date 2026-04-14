@@ -42,6 +42,12 @@ async function bootstrap() {
     .addTag('Permisos', 'Gestión de permisos')
     .addTag('S3 - archivos', 'Carga de archivos a S3')
     .addTag('Usuarios', 'Gestión de usuarios')
+    .addTag('Cat Estatus Turno', 'Catálogo estatus de turno')
+    .addTag('Cat Grado Severidad', 'Catálogo grado de severidad')
+    .addTag('Cat Partes Vehiculo Ex', 'Catálogo partes del vehículo')
+    .addTag('Cat Tipo Daño', 'Catálogo tipo de daño')
+    .addTag('Cat Vista Vehiculo', 'Catálogo vista del vehículo')
+    .addTag('Vehiculos', 'Consulta y sombra de vehículos (proxy Next)')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

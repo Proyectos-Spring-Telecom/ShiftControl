@@ -55,3 +55,9 @@ export enum EnumFiltros {
   MES = 3,
 }
 
+export enum EnumEstatusTurno {
+  PROGRAMADO = 1,
+  EN_CURSO = 2,
+  FINALIZADO = 3,
+  CANCELADO = 4,
+}

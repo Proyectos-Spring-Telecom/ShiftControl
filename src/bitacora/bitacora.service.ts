@@ -64,7 +64,7 @@ SELECT
 
   -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.IdUsuario AS idUsuarioNext,
+  u.Id AS idUsuarioNext,
   u.IdCliente AS idClienteUsuario,
   CAST(NULL AS CHAR(100)) AS nombreUsuario,
   CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
@@ -106,7 +106,7 @@ SELECT
 
   -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.IdUsuario AS idUsuarioNext,
+  u.Id AS idUsuarioNext,
   u.IdCliente AS idClienteUsuario,
   CAST(NULL AS CHAR(100)) AS nombreUsuario,
   CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
@@ -176,7 +176,7 @@ SELECT
 
   -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.IdUsuario AS idUsuarioNext,
+  u.Id AS idUsuarioNext,
   u.IdCliente AS idClienteUsuario,
   CAST(NULL AS CHAR(100)) AS nombreUsuario,
   CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
@@ -230,7 +230,7 @@ SELECT
 
   -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.IdUsuario AS idUsuarioNext,
+  u.Id AS idUsuarioNext,
   u.IdCliente AS idClienteUsuario,
   CAST(NULL AS CHAR(100)) AS nombreUsuario,
   CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,
@@ -313,7 +313,7 @@ SELECT
 
   -- Usuario (tabla sombra; perfil en Next)
   u.Id AS idUsuario,
-  u.IdUsuario AS idUsuarioNext,
+  u.Id AS idUsuarioNext,
   u.IdCliente AS idClienteUsuario,
   CAST(NULL AS CHAR(100)) AS nombreUsuario,
   CAST(NULL AS CHAR(100)) AS apellidoPaternoUsuario,

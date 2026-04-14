@@ -6,20 +6,24 @@ import { JwtStrategy } from './jwt.strategy';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { BitacoraModule } from 'src/bitacora/bitacora.module';
 import { Usuarios } from 'src/entities/Usuarios';
+import { Clientes } from 'src/entities/Clientes';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Usuarios]),
+    TypeOrmModule.forFeature([Usuarios, Clientes]),
     ConfigModule,
     EndpointProxyModule,
     BitacoraModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
+      // DESPUÉS
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET'),
-        signOptions: { expiresIn: config.get<string>('JWT_EXPIRES_IN') },
+        signOptions: {
+          expiresIn: Number(config.get<string>('JWT_EXPIRES_IN')),
+        },
       }),
     }),
   ],

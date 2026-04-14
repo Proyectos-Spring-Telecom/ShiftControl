@@ -2,249 +2,104 @@ import {
   Controller,
   Get,
   Post,
-  Body,
-  Patch,
   Param,
-  Delete,
-  UseGuards,
-  Request,
   ParseIntPipe,
+  UseGuards,
+  Req,
+  Res,
 } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+} from '@nestjs/swagger';
 import { ClientesService } from './clientes.service';
-import { CreateClienteDto } from './dto/create-cliente.dto';
-import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
-import { UpdateClienteEstatusDto } from './dto/update-clientes-estatus.dto';
-import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiResponse, ApiTags } from '@nestjs/swagger';
+import type { Request, Response } from 'express';
 
 @ApiTags('Clientes')
 @ApiBearerAuth('bearer-token')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(1, 2, 3) // Todos los roles pueden acceder por defecto
+@Roles(1, 2, 3)
 @Controller('clientes')
 export class ClientesController {
-  constructor(private readonly clientesService: ClientesService) { }
+  constructor(private readonly clientesService: ClientesService) {}
 
-  // ==================== POST ====================
-
-  @Post()
-  @Roles(1) // Solo SuperAdministrador puede crear clientes
+  @Post('sync')
   @ApiOperation({
-    summary: 'Crear un nuevo cliente',
-    description: 'Crea un nuevo cliente en el sistema.'
+    summary: 'Sincronizar clientes desde Next',
+    description:
+      'Llama a Next API, trae todos los clientes del usuario y los copia a la tabla sombra local.',
   })
-  @ApiBody({ type: CreateClienteDto })
-  @ApiResponse({
-    status: 201,
-    description: 'Cliente creado exitosamente',
-  })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
+  @ApiResponse({ status: 200, description: 'Sincronización completada' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso denegado - Solo SuperAdministrador puede crear clientes' })
-  async createCliente(
-    @Body() createClienteDto: CreateClienteDto,
-    @Request() req
-  ): Promise<ApiCrudResponse> {
-    const idUser = req.user.userId;
-    return await this.clientesService.createCliente(createClienteDto, idUser);
+  async sync(@Req() req: Request) {
+    return this.clientesService.syncClientes(req);
   }
 
-  // ==================== GET ====================
-
   @Get('list')
-  @ApiOperation({
-    summary: 'Obtener lista completa de clientes',
-    description: 'Obtiene todos los clientes según el rol y permisos del usuario'
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de clientes obtenida exitosamente',
-  })
+  @ApiOperation({ summary: 'Lista de clientes (proxy a Next)' })
+  @ApiResponse({ status: 200, description: 'Lista obtenida desde Next' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getAllListClientes(@Request() req): Promise<ApiResponseCommon> {
-    const idCliente = req.user.idCliente;
-    const idUser = req.user.userId;
-    const rol = req.user.rol;
-    return this.clientesService.getAllListClientes(+idUser, +idCliente, +rol);
+  async findAllList(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.clientesService.findAllList(req);
+    res.status(r.status);
+    return r.data;
   }
 
   @Get('list/:cliente')
-  @ApiOperation({
-    summary: 'Obtener lista de clientes por ID de cliente',
-    description: 'Obtiene todos los clientes filtrados por un ID de cliente específico'
-  })
-  @ApiParam({
-    name: 'cliente',
-    type: 'number',
-    description: 'ID del cliente',
-    example: 1
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de clientes obtenida exitosamente',
-  })
+  @ApiOperation({ summary: 'Lista de clientes por ID (proxy a Next)' })
+  @ApiParam({ name: 'cliente', description: 'ID del cliente' })
+  @ApiResponse({ status: 200, description: 'Lista obtenida desde Next' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  async getAllListClientesId(
-    @Param('cliente', ParseIntPipe) idCliente: number,
-    @Request() req
-  ): Promise<ApiResponseCommon> {
-    const idUser = req.user.userId;
-    const rol = req.user.rol;
-    return this.clientesService.getAllListClientesId(+idUser, +idCliente, +rol);
+  async findAllListById(
+    @Param('cliente', ParseIntPipe) clienteId: number,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.clientesService.findAllListById(clienteId, req);
+    res.status(r.status);
+    return r.data;
   }
 
   @Get(':page/:limit')
-  @ApiOperation({
-    summary: 'Obtener clientes con paginación',
-    description: 'Obtiene una lista paginada de clientes según los parámetros especificados'
-  })
-  @ApiParam({
-    name: 'page',
-    type: 'number',
-    description: 'Número de página',
-    example: 1
-  })
-  @ApiParam({
-    name: 'limit',
-    type: 'number',
-    description: 'Cantidad de registros por página',
-    example: 10
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Clientes obtenidos exitosamente con paginación',
-  })
+  @ApiOperation({ summary: 'Lista paginada de clientes (proxy a Next)' })
+  @ApiParam({ name: 'page', description: 'Número de página' })
+  @ApiParam({ name: 'limit', description: 'Registros por página' })
+  @ApiResponse({ status: 200, description: 'Lista paginada desde Next' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  async getAllClientes(
+  async findAll(
     @Param('page', ParseIntPipe) page: number,
     @Param('limit', ParseIntPipe) limit: number,
-    @Request() req
-  ): Promise<ApiResponseCommon> {
-    const idCliente = req.user.idCliente;
-    const idUser = req.user.userId;
-    const rol = req.user.rol;
-    return this.clientesService.getAllClientes(+idUser, +idCliente, +rol, page, limit);
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const r = await this.clientesService.findAll(page, limit, req);
+    res.status(r.status);
+    return r.data;
   }
 
   @Get(':id')
-  @ApiOperation({
-    summary: 'Obtener un cliente específico',
-    description: 'Obtiene la información detallada de un cliente por su ID'
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID del cliente',
-    example: 1
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Cliente obtenido exitosamente'
-  })
+  @ApiOperation({ summary: 'Detalle de cliente por ID (proxy a Next)' })
+  @ApiParam({ name: 'id', description: 'ID del cliente' })
+  @ApiResponse({ status: 200, description: 'Cliente encontrado' })
+  @ApiResponse({ status: 404, description: 'Cliente no encontrado en Next' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  async getOneCliente(
+  async findOne(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
   ) {
-    return this.clientesService.getOneCliente(id);
-  }
-
-  // ==================== PATCH ====================
-
-  @Patch('estatus/:id')
-  @ApiOperation({
-    summary: 'Actualizar estatus de un cliente',
-    description: 'Actualiza el estatus (activo/inactivo) de un cliente específico'
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID del cliente',
-    example: 1
-  })
-  @ApiBody({ type: UpdateClienteEstatusDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Estatus actualizado exitosamente',
-  })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  async updateEstatusClientes(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-    @Body() updateClienteEstatusDto: UpdateClienteEstatusDto
-  ): Promise<ApiCrudResponse> {
-    const idUser = req.user.userId;
-    const idCliente = req.user.idCliente;
-    return this.clientesService.updateClienteStatus(
-      id,
-      idUser,
-      +idCliente,
-      updateClienteEstatusDto
-    );
-  }
-
-  @Patch(':id')
-  @ApiOperation({
-    summary: 'Actualizar datos de un cliente',
-    description: 'Actualiza la información de un cliente existente'
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID del cliente',
-    example: 1
-  })
-  @ApiBody({ type: UpdateClienteDto })
-  @ApiResponse({
-    status: 200,
-    description: 'Cliente actualizado exitosamente',
-  })
-  @ApiResponse({ status: 400, description: 'Datos inválidos' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  async updateCliente(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-    @Body() updateClienteDto: UpdateClienteDto
-  ): Promise<ApiCrudResponse> {
-    const idUser = req.user.userId;
-    return await this.clientesService.updateCliente(id, idUser, updateClienteDto);
-  }
-
-  // ==================== DELETE ====================
-
-  @Delete(':id')
-  @Roles(1) // Solo SuperAdministrador puede eliminar clientes
-  @ApiOperation({
-    summary: 'Eliminar un cliente',
-    description: 'Elimina un cliente del sistema'
-  })
-  @ApiParam({
-    name: 'id',
-    type: 'number',
-    description: 'ID del cliente a eliminar',
-    example: 1
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Cliente eliminado exitosamente',
-  })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
-  @ApiResponse({ status: 403, description: 'Acceso denegado - Solo SuperAdministrador puede eliminar clientes' })
-  @ApiResponse({ status: 404, description: 'Cliente no encontrado' })
-  async removeClientes(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req
-  ): Promise<ApiCrudResponse> {
-    const idUser = req.user.userId;
-    const idCliente = req.user.idCliente;
-    return await this.clientesService.removeCliente(id, idUser, +idCliente);
+    const r = await this.clientesService.findOne(id, req);
+    res.status(r.status);
+    return r.data;
   }
 }

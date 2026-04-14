@@ -8,8 +8,14 @@ import { BitacoraModule } from './bitacora/bitacora.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { ModulosModule } from './modulos/modulos.module';
 import { S3Module } from './s3/s3.module';
+import { CatEstatusTurnoModule } from './cat-estatus-turno/cat-estatus-turno.module';
+import { CatGradoSeveridadModule } from './cat-grado-severidad/cat-grado-severidad.module';
+import { CatPartesVehiculoExModule } from './cat-partes-vehiculo-ex/cat-partes-vehiculo-ex.module';
+import { CatTipoDanoModule } from './cat-tipo-dano/cat-tipo-dano.module';
+import { CatVistaVehiculoModule } from './cat-vista-vehiculo/cat-vista-vehiculo.module';
+import { VehiculosModule } from './vehiculos/vehiculos.module';
+import { TurnosModule } from './turnos/turnos.module';
 import Joi from 'joi';
-
 
 @Module({
   imports: [
@@ -81,7 +87,9 @@ import Joi from 'joi';
         entities: [__dirname + '/entities/*{.ts,.js}'],
         synchronize: false, //Nunca poner en true
         dateStrings: false,
-        timezone: 'Z',
+        timezone: '-06:00',
+        bigNumberStrings: false,
+        logging: true,
         extra: {
           // Evita que bigint se devuelvan como string
           decimalNumbers: true,
@@ -98,6 +106,20 @@ import Joi from 'joi';
     S3Module,
 
     ModulosModule,
+
+    CatEstatusTurnoModule,
+
+    CatGradoSeveridadModule,
+
+    CatPartesVehiculoExModule,
+
+    CatTipoDanoModule,
+
+    CatVistaVehiculoModule,
+
+    VehiculosModule,
+
+    TurnosModule,
   ],
   providers: [
     {
