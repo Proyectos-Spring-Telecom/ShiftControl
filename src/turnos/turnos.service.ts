@@ -29,6 +29,7 @@ import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitac
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { UpdateTurnoEstatusDto } from './dto/update-turno-estatus.dto';
+import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import {
   EnumEstatusTurno,
   EstatusEnum,
@@ -999,6 +1000,144 @@ export class TurnosService {
     }
   }
 
+  /**
+   * Cierra bitácora de apertura (sin datos de cierre geográfico en el turno) o de cierre (turno ya con cierre).
+   * Requiere bitácora completa (sin FKs nulas) y coherencia id/tipo con el turno.
+   */
+  async cierreBitacoraVehiculo(
+    dto: CierreBitacoraVehiculoDto,
+    idCliente: number,
+    req: Request,
+  ): Promise<ApiCrudResponse> {
+    const bitacora = await this.bitacoraRepository.findOne({
+      where: { id: dto.idBitacoraVehiculo },
+      relations: ['turno', 'turno.vehiculo', 'vehiculo'],
+    });
+    if (!bitacora || bitacora.idCliente !== idCliente) {
+      throw new NotFoundException({ message: 'Bitácora vehículo no encontrada' });
+    }
+    if (bitacora.estatus !== EstatusEnum.ACTIVO) {
+      throw new BadRequestException('La bitácora no está activa');
+    }
+
+    const turno = bitacora.turno;
+    if (!turno || turno.idCliente !== idCliente) {
+      throw new BadRequestException('El turno asociado no es válido para este cliente');
+    }
+
+    const faltantes = this.bitacoraVehiculoCamposFaltantes(bitacora);
+    if (faltantes.length > 0) {
+      throw new BadRequestException({
+        message:
+          'No se puede cerrar la bitácora: faltan secciones por registrar (no deben ser null)',
+        camposFaltantes: faltantes,
+      });
+    }
+
+    const { longitudCierre, latitudCierre, fechaCierre } = turno;
+    console.log('longitudCierre', longitudCierre);
+    console.log('latitudCierre', latitudCierre);
+    console.log('fechaCierre', fechaCierre);
+    const cierrePendiente =
+      longitudCierre == null && latitudCierre == null && fechaCierre == null;
+    const cierreCompleto =
+      longitudCierre != null && latitudCierre != null && fechaCierre != null;
+
+    if (!cierrePendiente && !cierreCompleto) {
+      throw new BadRequestException(
+        'Estado inconsistente del turno: longitudCierre, latitudCierre y fechaCierre deben ser todos null o todos con valor',
+      );
+    }
+    console.log('cierrePendiente', cierrePendiente);
+    console.log('cierreCompleto', cierreCompleto);
+
+    if (cierrePendiente === true) {
+      console.log('cierrePendiente es true');
+      if (
+        turno.idBitacoraApertura == null ||
+        Number(bitacora.id) !== Number(turno.idBitacoraApertura)
+      ) {
+        throw new BadRequestException(
+          'Solo se puede usar la bitácora de apertura del turno cuando el cierre geográfico aún no está registrado',
+        );
+      }
+      if (bitacora.tipo !== EnumTipoBitacoraVehiculo.APERTURA) {
+        throw new BadRequestException('La bitácora debe ser de tipo apertura para este flujo');
+      }
+
+      const placas =
+        turno.vehiculo?.placas?.trim() ||
+        bitacora.vehiculo?.placas?.trim() ||
+        '';
+      if (!placas) {
+        throw new BadRequestException('No se encontró placa del vehículo para sincronizar');
+      }
+
+      await this.bitacoraRepository.update(bitacora.id, { estatus: EstatusEnum.INACTIVO });
+      const vehiculoPorPlaca = await this.vehiculosService.findOneByPlaca(placas, req);
+
+      return {
+        status: 'success',
+        message: 'El flujo de apertura del turno ha concluido.',
+        data: {
+          id: Number(turno.id),
+          idBitacoraVehiculo: Number(bitacora.id),
+          idTurno: Number(turno.id),
+          flujo: 'apertura',
+          vehiculoPorPlaca,
+        },
+      };
+    }
+
+    if (
+      turno.idBitacoraCierre == null ||
+      Number(bitacora.id) !== Number(turno.idBitacoraCierre)
+    ) {
+      throw new BadRequestException(
+        'Solo se puede usar la bitácora de cierre del turno cuando el cierre geográfico ya está registrado',
+      );
+    }
+    if (bitacora.tipo !== EnumTipoBitacoraVehiculo.CIERRE) {
+      throw new BadRequestException('La bitácora debe ser de tipo cierre para este flujo');
+    }
+
+    await this.repository.manager.transaction(async (manager) => {
+      await manager.getRepository(BitacoraVehiculo).update(bitacora.id, {
+        estatus: EstatusEnum.INACTIVO,
+      });
+      await manager.getRepository(Turnos).update(turno.id, {
+        estatus: EstatusEnum.INACTIVO,
+        idEstatusTurno: EnumEstatusTurno.FINALIZADO,
+      });
+    });
+
+    const placas = turno.vehiculo?.placas?.trim() || bitacora.vehiculo?.placas?.trim() || '';
+
+    return {
+      status: 'success',
+      message: 'Bitácora de cierre finalizada y turno marcado como finalizado.',
+      data: {
+        id: Number(turno.id),
+        idBitacoraVehiculo: Number(bitacora.id),
+        idTurno: Number(turno.id),
+        nombre: placas ? `Turno #${turno.id} - ${placas}` : `Turno #${turno.id}`,
+        flujo: 'cierre',
+      },
+    };
+  }
+
+  private bitacoraVehiculoCamposFaltantes(b: BitacoraVehiculo): string[] {
+    const faltantes: string[] = [];
+    if (b.tipo == null) faltantes.push('tipo');
+    if (b.idTablero == null) faltantes.push('idTablero');
+    if (b.idTestigosVehiculo == null) faltantes.push('idTestigosVehiculo');
+    if (b.idNivelesFluidos == null) faltantes.push('idNivelesFluidos');
+    if (b.idLucesVehiculo == null) faltantes.push('idLucesVehiculo');
+    if (b.idAccesoriosVehiculo == null) faltantes.push('idAccesoriosVehiculo');
+    if (b.idDocumentacionVehiculo == null) faltantes.push('idDocumentacionVehiculo');
+    return faltantes;
+  }
+
   async update(
     dto: UpdateTurnoDto,
     idCliente: number,
@@ -1059,6 +1198,8 @@ export class TurnosService {
         apertura != null && !Number.isNaN(apertura.getTime())
           ? (fechaCierre.getTime() - apertura.getTime()) / (1000 * 60 * 60)
           : null;
+
+      console.log('duracionHoras', duracionHoras);
 
       const idVehiculoTurno = turno.idVehiculo;
       const idClienteTurno = turno.idCliente;

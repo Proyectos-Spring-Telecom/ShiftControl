@@ -27,6 +27,7 @@ import { TurnosService } from './turnos.service';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { UpdateTurnoEstatusDto } from './dto/update-turno-estatus.dto';
+import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import { RegistrarTableroBitacoraDto } from './dto/registrar-tablero-bitacora.dto';
 import { RegistrarTestigosBitacoraDto } from './dto/registrar-testigos-bitacora.dto';
 import { RegistrarNivelesFluidosBitacoraDto } from './dto/registrar-niveles-fluidos-bitacora.dto';
@@ -378,6 +379,26 @@ export class TurnosController {
       idUser,
       evidenciaFotografica,
     );
+  }
+
+  @Patch('bitacora/cierre')
+  @ApiOperation({
+    summary: 'Cierre de bitácora (apertura o cierre según estado del turno)',
+    description:
+      'JSON: idBitacoraVehiculo. Si el turno no tiene longitudCierre, latitudCierre ni fechaCierre, cierra la bitácora de apertura y sincroniza vehículo por placa. Si las tres tienen valor, cierra la bitácora de cierre y finaliza el turno (INACTIVO + estatus FINALIZADO). Requiere bitácora completa (sin FKs nulas).',
+  })
+  @ApiBody({ type: CierreBitacoraVehiculoDto })
+  @ApiResponse({ status: 200, description: 'Bitácora cerrada (flujo apertura o cierre)' })
+  @ApiResponse({
+    status: 400,
+    description: 'Bitácora incompleta, inactiva, turno inconsistente o bitácora no coincide con apertura/cierre',
+  })
+  async cierreBitacoraVehiculo(
+    @Body() dto: CierreBitacoraVehiculoDto,
+    @Request() req,
+  ): Promise<ApiCrudResponse> {
+    const idCliente = req.user.idCliente;
+    return this.turnosService.cierreBitacoraVehiculo(dto, idCliente, req);
   }
 
   @Patch()

@@ -46,6 +46,8 @@ export interface ApiData {
   idVehiculo?: number | null;
   /** Respuesta proxy GET vehículo por placa (Next) al crear turno */
   vehiculoPorPlaca?: { status: number; data: unknown };
+  /** Subflujo de cierre de bitácora: apertura | cierre */
+  flujo?: string;
 }
 
 export interface ApiEstatus {
