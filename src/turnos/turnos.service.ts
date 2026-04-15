@@ -1062,18 +1062,22 @@ export class TurnosService {
         );
       }
       if (bitacora.tipo !== EnumTipoBitacoraVehiculo.APERTURA) {
-        throw new BadRequestException('La bitácora debe ser de tipo apertura para este flujo');
+        throw new BadRequestException(
+          'La bitácora debe ser de tipo apertura para este flujo',
+        );
       }
 
       const placas =
-        turno.vehiculo?.placas?.trim() ||
-        bitacora.vehiculo?.placas?.trim() ||
-        '';
+        turno.vehiculo?.placas?.trim() || bitacora.vehiculo?.placas?.trim() || '';
       if (!placas) {
-        throw new BadRequestException('No se encontró placa del vehículo para sincronizar');
+        throw new BadRequestException(
+          'No se encontró placa del vehículo para sincronizar',
+        );
       }
 
-      await this.bitacoraRepository.update(bitacora.id, { estatus: EstatusEnum.INACTIVO });
+      await this.bitacoraRepository.update(bitacora.id, {
+        estatus: EstatusEnum.INACTIVO,
+      });
       const vehiculoPorPlaca = await this.vehiculosService.findOneByPlaca(placas, req);
 
       return {
@@ -1098,7 +1102,9 @@ export class TurnosService {
       );
     }
     if (bitacora.tipo !== EnumTipoBitacoraVehiculo.CIERRE) {
-      throw new BadRequestException('La bitácora debe ser de tipo cierre para este flujo');
+      throw new BadRequestException(
+        'La bitácora debe ser de tipo cierre para este flujo',
+      );
     }
 
     await this.repository.manager.transaction(async (manager) => {
@@ -1111,7 +1117,8 @@ export class TurnosService {
       });
     });
 
-    const placas = turno.vehiculo?.placas?.trim() || bitacora.vehiculo?.placas?.trim() || '';
+    const placas =
+      turno.vehiculo?.placas?.trim() || bitacora.vehiculo?.placas?.trim() || '';
 
     return {
       status: 'success',

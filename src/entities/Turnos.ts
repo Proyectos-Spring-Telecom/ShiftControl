@@ -60,8 +60,6 @@ export class Turnos {
   @Column('datetime', {
     name: 'FechaApertura',
     nullable: true,
-    default: () => 'CURRENT_TIMESTAMP',
-    onUpdate: 'CURRENT_TIMESTAMP',
   })
   fechaApertura: Date | null;
 
@@ -102,6 +100,19 @@ export class Turnos {
 
   @Column('bigint', { name: 'IDEstatusTurno', nullable: true })
   idEstatusTurno: number | null;
+
+  @Column('datetime', {
+    name: 'FechaCreacion',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  fechaCreacion: Date;
+
+  @Column('datetime', {
+    name: 'FechaActualizacion',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  fechaActualizacion: Date;
 
   @ManyToOne(() => Vehiculos, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   @JoinColumn([{ name: 'IdVehiculo', referencedColumnName: 'id' }])
