@@ -4,59 +4,68 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-} from "typeorm";
-import { applySchema } from "src/common/apply-schema.decorator";
-import { Vehiculos } from "./Vehiculos";
+} from 'typeorm';
+import { applySchema } from 'src/common/apply-schema.decorator';
+import { Vehiculos } from './Vehiculos';
+import { Turnos } from './Turnos';
 
 @applySchema
-@Entity("AccesoriosVehiculo")
+@Entity('AccesoriosVehiculo')
 export class AccesoriosVehiculo {
-  @PrimaryGeneratedColumn({ type: "bigint", name: "Id" })
+  @PrimaryGeneratedColumn({ type: 'bigint', name: 'Id' })
   id: number;
 
-  @Column("bigint", { name: "IdVehiculo" })
+  @Column('bigint', { name: 'IdTurno' })
+  idTurno: number;
+
+  @Column('bigint', { name: 'IdVehiculo' })
   idVehiculo: number;
 
-  @Column("tinyint", { name: "Limpiaparabrisas", nullable: true })
+  @Column('tinyint', { name: 'Limpiaparabrisas', nullable: true })
   limpiaparabrisas: number | null;
 
-  @Column("tinyint", { name: "Extintor", nullable: true })
+  @Column('tinyint', { name: 'Extintor', nullable: true })
   extintor: number | null;
 
-  @Column("tinyint", { name: "TringulosSeguridad", nullable: true })
+  @Column('tinyint', { name: 'TringulosSeguridad', nullable: true })
   tringulosSeguridad: number | null;
 
-  @Column("tinyint", { name: "Stereo", nullable: true })
+  @Column('tinyint', { name: 'Stereo', nullable: true })
   stereo: number | null;
 
-  @Column("tinyint", { name: "Tapetes", nullable: true })
+  @Column('tinyint', { name: 'Tapetes', nullable: true })
   tapetes: number | null;
 
-  @Column("tinyint", { name: "Refaccion", nullable: true })
+  @Column('tinyint', { name: 'Refaccion', nullable: true })
   refaccion: number | null;
 
-  @Column("tinyint", { name: "Gato", nullable: true })
+  @Column('tinyint', { name: 'Gato', nullable: true })
   gato: number | null;
 
-  @Column("tinyint", { name: "BirloSeguridad", nullable: true })
+  @Column('tinyint', { name: 'BirloSeguridad', nullable: true })
   birloSeguridad: number | null;
 
-  @Column("tinyint", { name: "Estatus", default: 1 })
+  @Column('tinyint', { name: 'Estatus', default: 0 })
   estatus: number;
 
-  @Column("datetime", {
-    name: "FechaCreacion",
-    default: () => "CURRENT_TIMESTAMP",
+  @Column('datetime', {
+    name: 'FechaCreacion',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
   })
   fechaCreacion: Date;
 
-  @Column("datetime", {
-    name: "FechaActualizacion",
-    default: () => "CURRENT_TIMESTAMP",
+  @Column('datetime', {
+    name: 'FechaActualizacion',
+    default: () => 'CURRENT_TIMESTAMP',
   })
   fechaActualizacion: Date;
 
-  @ManyToOne(() => Vehiculos, { onDelete: "RESTRICT", onUpdate: "CASCADE" })
-  @JoinColumn([{ name: "IdVehiculo", referencedColumnName: "id" }])
+  @ManyToOne(() => Turnos, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
+  @JoinColumn([{ name: 'IdTurno', referencedColumnName: 'id' }])
+  turno: Turnos;
+
+  @ManyToOne(() => Vehiculos, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
+  @JoinColumn([{ name: 'IdVehiculo', referencedColumnName: 'id' }])
   vehiculo: Vehiculos;
 }

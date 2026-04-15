@@ -31,6 +31,21 @@ export interface ApiData {
   /** Cliente maestro (Next) en tabla sombra Clientes */
   idClienteNext?: number | null;
   idPadre?: number | null;
+  idBitacoraApertura?: number | null;
+  idBitacoraCierre?: number | null;
+  duracion?: number | null;
+  idTablero?: number | null;
+  idBitacoraVehiculo?: number | null;
+  idTestigosVehiculo?: number | null;
+  idNivelesFluidos?: number | null;
+  idLucesVehiculo?: number | null;
+  idDocumentacionVehiculo?: number | null;
+  idAccesoriosVehiculo?: number | null;
+  idInspeccionVehiculoEx?: number | null;
+  idTurno?: number | null;
+  idVehiculo?: number | null;
+  /** Respuesta proxy GET vehículo por placa (Next) al crear turno */
+  vehiculoPorPlaca?: { status: number; data: unknown };
 }
 
 export interface ApiEstatus {

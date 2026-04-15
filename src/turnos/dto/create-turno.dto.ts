@@ -1,47 +1,26 @@
 import { ApiProperty } from '@nestjs/swagger';
-import {
-  IsNotEmpty,
-  IsNumber,
-  IsOptional,
-  IsInt,
-  Min,
-  IsString,
-  MaxLength,
-  IsEnum,
-} from 'class-validator';
-import { EnumEstatusTurno } from 'src/common/estatus.enum';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
 
 export class CreateTurnoDto {
   @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  @ApiProperty({ description: 'Latitud de apertura', example: 18.9242156 })
+  latitud: number;
+
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  @ApiProperty({ description: 'Longitud de apertura', example: -99.2340987 })
+  longitud: number;
+
+  @IsOptional()
   @IsString()
-  @MaxLength(10)
   @ApiProperty({
-    description: 'Placa del vehículo (tabla sombra local; mismo valor que en Next)',
-    example: 'ABC123DE',
-  })
-  placa: string;
-
-  @IsOptional()
-  @IsNumber()
-  @ApiProperty({
-    description: 'Latitud de apertura',
-    example: 18.9242156,
+    description:
+      'URL de evidencia solo si no se usa archivo (sin OCR de placa en ese flujo)',
     required: false,
   })
-  latitud?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @ApiProperty({
-    description: 'Longitud de apertura',
-    example: -99.2340987,
-    required: false,
-  })
-  longitud?: number;
-
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @IsEnum(EnumEstatusTurno)
-  idEstatusTurno?: EnumEstatusTurno.EN_CURSO;
+  evidenciaAperturaUrl?: string;
 }

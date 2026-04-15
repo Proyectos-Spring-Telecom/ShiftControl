@@ -56,6 +56,9 @@ import Joi from 'joi';
         THROTTLE_REFRESH_TTL_MS: Joi.number().default(60000),
         THROTTLE_LOGOUT_LIMIT: Joi.number().default(5),
         THROTTLE_LOGOUT_TTL_MS: Joi.number().default(60000),
+        BEHAVIORIQ_BASE_URL: Joi.string().uri().optional(),
+        BEHAVIORIQ_USER_NAME: Joi.string().optional().allow(''),
+        BEHAVIORIQ_PASSWORD: Joi.string().optional().allow(''),
       }),
     }),
 

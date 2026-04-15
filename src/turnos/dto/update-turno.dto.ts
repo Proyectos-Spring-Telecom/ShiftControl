@@ -1,62 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsNumber, IsInt, IsDateString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsNotEmpty, IsNumber, Min } from 'class-validator';
 
 export class UpdateTurnoDto {
-  @IsOptional()
-  @IsInt()
-  @ApiProperty({ description: 'ID estatus turno', example: 2, required: false })
-  idEstatusTurno?: number;
-
-  @IsOptional()
-  @IsDateString()
+  @IsNotEmpty()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
   @ApiProperty({
-    description: 'Fecha de cierre (ISO 8601)',
-    required: false,
+    description: 'Id del turno a cerrar (debe coincidir con el id de la ruta)',
+    example: 1,
   })
-  fechaCierre?: string;
+  idTurno: number;
 
-  @IsOptional()
+  @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
-  @ApiProperty({ description: 'Duración en minutos', required: false })
-  duracion?: number;
+  @ApiProperty({ description: 'Latitud de cierre (LatitudCierre)', example: 19.4326077 })
+  latitud: number;
 
-  @IsOptional()
+  @IsNotEmpty()
+  @Type(() => Number)
   @IsNumber()
-  @ApiProperty({ description: 'Latitud de apertura', required: false })
-  latitudApertura?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @ApiProperty({ description: 'Longitud de apertura', required: false })
-  longitudApertura?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @ApiProperty({ description: 'Latitud de cierre', required: false })
-  latitudCierre?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @ApiProperty({ description: 'Longitud de cierre', required: false })
-  longitudCierre?: number;
-
-  @IsOptional()
-  @IsInt()
-  @ApiProperty({ description: 'ID Bitácora de apertura', required: false })
-  idBitacoraApertura?: number;
-
-  @IsOptional()
-  @IsInt()
-  @ApiProperty({ description: 'ID Evidencia de apertura', required: false })
-  evidenciaApertura?: number;
-
-  @IsOptional()
-  @IsInt()
-  @ApiProperty({ description: 'ID Bitácora de cierre', required: false })
-  idBitacoraCierre?: number;
-
-  @IsOptional()
-  @IsInt()
-  @ApiProperty({ description: 'ID Evidencia de cierre', required: false })
-  evidenciaCierre?: number;
+  @ApiProperty({ description: 'Longitud de cierre (LongitudCierre)', example: -99.133208 })
+  longitud: number;
 }

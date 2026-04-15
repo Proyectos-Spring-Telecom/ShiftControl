@@ -61,3 +61,8 @@ export enum EnumEstatusTurno {
   FINALIZADO = 3,
   CANCELADO = 4,
 }
+
+export enum EnumTipoBitacoraVehiculo {
+  APERTURA = 1,
+  CIERRE = 2,
+}

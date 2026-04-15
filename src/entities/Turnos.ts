@@ -38,8 +38,8 @@ export class Turnos {
   @Column('bigint', { name: 'IdBitacoraApertura', nullable: true })
   idBitacoraApertura: number | null;
 
-  @Column('bigint', { name: 'EvidenciaApertura', nullable: true })
-  evidenciaApertura: number | null;
+  @Column('varchar', { name: 'EvidenciaApertura', length: 500, nullable: true })
+  evidenciaApertura: string | null;
 
   @Column('decimal', {
     name: 'LongitudApertura',
@@ -68,8 +68,8 @@ export class Turnos {
   @Column('bigint', { name: 'IdBitacoraCierre', nullable: true })
   idBitacoraCierre: number | null;
 
-  @Column('bigint', { name: 'EvidenciaCierre', nullable: true })
-  evidenciaCierre: number | null;
+  @Column('varchar', { name: 'EvidenciaCierre', length: 500, nullable: true })
+  evidenciaCierre: string | null;
 
   @Column('decimal', {
     name: 'LongitudCierre',
