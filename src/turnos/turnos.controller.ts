@@ -26,7 +26,6 @@ import {
 import { TurnosService } from './turnos.service';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
-import { UpdateTurnoEstatusDto } from './dto/update-turno-estatus.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import { RegistrarTableroBitacoraDto } from './dto/registrar-tablero-bitacora.dto';
 import { RegistrarTestigosBitacoraDto } from './dto/registrar-testigos-bitacora.dto';
@@ -941,21 +940,29 @@ export class TurnosController {
     return this.turnosService.update(dto, idCliente, idUser, evidenciaCierre);
   }
 
-  @Patch(':id/estatus')
-  @ApiOperation({ summary: 'Cambiar estatus del turno (activar/desactivar)' })
-  @ApiParam({ name: 'id' })
-  @ApiBody({ type: UpdateTurnoEstatusDto })
+  @Patch(':idTurno/estatus')
+  @ApiOperation({
+    summary: 'Cancelar turno en curso',
+    description:
+      'Recibe idTurno en ruta. Solo permite cancelar cuando el turno está EN_CURSO; cambia Turnos.Estatus a INACTIVO e IDEstatusTurno a CANCELADO. Si existen IdBitacoraApertura y/o IdBitacoraCierre, también se marcan INACTIVO en BitacoraVehiculo.',
+  })
+  @ApiParam({ name: 'idTurno' })
+  @ApiResponse({ status: 200, description: 'Turno cancelado correctamente' })
+  @ApiResponse({
+    status: 400,
+    description: 'El turno no ha iniciado o está cerrado',
+  })
+  @ApiResponse({ status: 404, description: 'Turno no encontrado' })
   async updateEstatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateTurnoEstatusDto,
+    @Param('idTurno', ParseIntPipe) idTurno: number,
     @Request() req,
   ): Promise<ApiCrudResponse> {
     const idCliente = req.user.idCliente;
     const idUser = req.user.userId;
-    return this.turnosService.updateEstatus(id, dto, idCliente, idUser);
+    return this.turnosService.updateEstatus(idTurno, idCliente, idUser);
   }
 
-  @Delete(':id')
+  /*   @Delete(':id')
   @Roles(1)
   @ApiOperation({ summary: 'Eliminar turno (baja lógica)' })
   @ApiParam({ name: 'id' })
@@ -966,5 +973,5 @@ export class TurnosController {
     const idCliente = req.user.idCliente;
     const idUser = req.user.userId;
     return this.turnosService.remove(id, idCliente, idUser);
-  }
+  } */
 }

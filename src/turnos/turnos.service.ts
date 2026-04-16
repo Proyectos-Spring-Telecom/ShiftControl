@@ -28,7 +28,6 @@ import { RegistrarDocumentacionBitacoraDto } from './dto/registrar-documentacion
 import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitacora.dto';
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
-import { UpdateTurnoEstatusDto } from './dto/update-turno-estatus.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import {
   EnumEstatusTurno,
@@ -253,6 +252,7 @@ export class TurnosService {
         .where(`REPLACE(REPLACE(UPPER(TRIM(v.placas)), '-', ''), ' ', '') = :norm`, {
           norm: placaOcrNorm,
         })
+        .andWhere('v.idCliente = :idCliente', { idCliente })
         .getOne();
 
       if (!vehiculo) {
@@ -1263,29 +1263,51 @@ export class TurnosService {
   }
 
   async updateEstatus(
-    id: number,
-    dto: UpdateTurnoEstatusDto,
+    idTurno: number,
     idCliente: number,
     idUser: number,
   ): Promise<ApiCrudResponse> {
     try {
       const turno = await this.repository.findOne({
-        where: { id, idCliente },
+        where: { id: idTurno, idCliente },
         relations: ['vehiculo'],
       });
       if (!turno) {
         throw new NotFoundException('Turno no encontrado');
       }
-      const estatus = dto.estatus;
-      await this.repository.update(id, { estatus });
+      if (turno.idEstatusTurno !== EnumEstatusTurno.EN_CURSO) {
+        throw new BadRequestException('El turno no ha iniciado o está cerrado');
+      }
+
+      await this.repository.manager.transaction(async (manager) => {
+        const turnoRepo = manager.getRepository(Turnos);
+        const bitacoraRepo = manager.getRepository(BitacoraVehiculo);
+
+        await turnoRepo.update(idTurno, {
+          estatus: EstatusEnum.INACTIVO,
+          idEstatusTurno: EnumEstatusTurno.CANCELADO,
+        });
+
+        if (turno.idBitacoraApertura != null) {
+          await bitacoraRepo.update(turno.idBitacoraApertura, {
+            estatus: EstatusEnum.INACTIVO,
+          });
+        }
+
+        if (turno.idBitacoraCierre != null) {
+          await bitacoraRepo.update(turno.idBitacoraCierre, {
+            estatus: EstatusEnum.INACTIVO,
+          });
+        }
+      });
 
       return {
         status: 'success',
-        message: 'Estatus del turno actualizado correctamente',
-        estatus: { estatus },
+        message: 'Turno cancelado correctamente',
+        estatus: { estatus: EstatusEnum.INACTIVO },
         data: {
-          id,
-          nombre: `Turno #${id} - ${turno.vehiculo?.placas ?? ''}`,
+          id: idTurno,
+          nombre: `Turno #${idTurno} - ${turno.vehiculo?.placas ?? ''}`,
         },
       };
     } catch (error) {
@@ -1293,7 +1315,7 @@ export class TurnosService {
         throw error;
       }
       throw new InternalServerErrorException(
-        `Error al cambiar estatus del turno con id: ${id}`,
+        `Error al cancelar el turno con id: ${idTurno}`,
       );
     }
   }
