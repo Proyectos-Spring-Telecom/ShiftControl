@@ -18,6 +18,10 @@ import { LucesVehiculo } from 'src/entities/LucesVehiculo';
 import { DocumentacionVehiculo } from 'src/entities/DocumentacionVehiculo';
 import { AccesoriosVehiculo } from 'src/entities/AccesoriosVehiculo';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
+import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
+import { CatTipoDano } from 'src/entities/CatTipoDano';
+import { CatGradoSeveridad } from 'src/entities/CatGradoSeveridad';
+import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { CreateTurnoDto } from './dto/create-turno.dto';
 import { RegistrarTableroBitacoraDto } from './dto/registrar-tablero-bitacora.dto';
@@ -29,6 +33,8 @@ import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitac
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
+import { CrearIncidenciaAccidenteDto } from './dto/crear-incidencia-accidente.dto';
+import { CrearIncidenciaGasolinaDto } from './dto/crear-incidencia-gasolina.dto';
 import {
   EnumEstatusTurno,
   EstatusEnum,
@@ -167,6 +173,14 @@ export class TurnosService {
     private readonly catEstatusTurnoRepository: Repository<CatEstatusTurno>,
     @InjectRepository(BitacoraVehiculo)
     private readonly bitacoraRepository: Repository<BitacoraVehiculo>,
+    @InjectRepository(IncidenciaAccidente)
+    private readonly incidenciaAccidenteRepository: Repository<IncidenciaAccidente>,
+    @InjectRepository(CatTipoDano)
+    private readonly catTipoDanoRepository: Repository<CatTipoDano>,
+    @InjectRepository(CatGradoSeveridad)
+    private readonly catGradoSeveridadRepository: Repository<CatGradoSeveridad>,
+    @InjectRepository(IncidenciaGasolina)
+    private readonly incidenciaGasolinaRepository: Repository<IncidenciaGasolina>,
     private readonly s3Service: S3Service,
     private readonly behaviorIqAuth: BehaviorIqAuthService,
     private readonly behaviorIqPlate: BehaviorIqPlateService,
@@ -346,6 +360,274 @@ export class TurnosService {
           nombre: `Turno #${saved.id} - ${vehiculo.placas}`,
           idBitacoraApertura,
           vehiculoPorPlaca,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException((error as Error).message);
+    }
+  }
+
+  async crearIncidenciaAccidente(
+    dto: CrearIncidenciaAccidenteDto,
+    idCliente: number,
+    idUser: number,
+    files: {
+      fotoEvidencia1?: Express.Multer.File[];
+      fotoEvidencia2?: Express.Multer.File[];
+      fotoEvidencia3?: Express.Multer.File[];
+    },
+  ): Promise<ApiCrudResponse> {
+    try {
+      const foto1 = files.fotoEvidencia1?.[0];
+      if (!foto1?.buffer?.length) {
+        throw new BadRequestException('Debe adjuntar la imagen fotoEvidencia1');
+      }
+
+      const turno = await this.repository.findOne({
+        where: { id: dto.idTurno, idCliente },
+        relations: ['vehiculo'],
+      });
+      if (!turno) {
+        throw new NotFoundException({ message: 'Turno no encontrado' });
+      }
+      if (turno.idVehiculo == null) {
+        throw new BadRequestException('El turno no tiene vehículo asociado');
+      }
+      if (turno.estatus !== EstatusEnum.ACTIVO) {
+        throw new BadRequestException('El turno no está activo');
+      }
+      if (turno.idEstatusTurno !== EnumEstatusTurno.EN_CURSO) {
+        throw new BadRequestException('El turno no está en curso');
+      }
+
+      const idCatTipoDano = dto.idCatTipoDano ?? 1;
+      const idCatGradoSeveridad = dto.idCatGradoSeveridad ?? 1;
+
+      const tipoDano = await this.catTipoDanoRepository.findOne({
+        where: { id: idCatTipoDano, estatus: EstatusEnum.ACTIVO },
+      });
+      if (!tipoDano) {
+        throw new BadRequestException(
+          'Tipo de daño inválido o inactivo. Envíe idCatTipoDano válido o configure el catálogo con id 1 activo.',
+        );
+      }
+
+      const grado = await this.catGradoSeveridadRepository.findOne({
+        where: { id: idCatGradoSeveridad, estatus: EstatusEnum.ACTIVO },
+      });
+      if (!grado) {
+        throw new BadRequestException(
+          'Grado de severidad inválido o inactivo. Envíe idCatGradoSeveridad válido o configure el catálogo con id 1 activo.',
+        );
+      }
+
+      const url1 = await this.procesarArchivo(
+        foto1,
+        'turnos/incidencias',
+        idUser,
+        EnumModulos.TURNOS,
+      );
+      if (!url1) {
+        throw new BadRequestException('No se pudo subir fotoEvidencia1');
+      }
+      if (url1.length > 500) {
+        throw new BadRequestException(
+          'La URL de fotoEvidencia1 supera 500 caracteres (límite de columna en base de datos)',
+        );
+      }
+
+      let fotoEvidencia2: string | null = null;
+      const foto2 = files.fotoEvidencia2?.[0];
+      if (foto2?.buffer?.length) {
+        const u2 = await this.procesarArchivo(
+          foto2,
+          'turnos/incidencias',
+          idUser,
+          EnumModulos.TURNOS,
+        );
+        if (u2 && u2.length > 500) {
+          throw new BadRequestException(
+            'La URL de fotoEvidencia2 supera 500 caracteres (límite de columna en base de datos)',
+          );
+        }
+        fotoEvidencia2 = u2;
+      }
+
+      let fotoEvidencia3: string | null = null;
+      const foto3 = files.fotoEvidencia3?.[0];
+      if (foto3?.buffer?.length) {
+        const u3 = await this.procesarArchivo(
+          foto3,
+          'turnos/incidencias/accidente',
+          idUser,
+          EnumModulos.TURNOS,
+        );
+        if (u3 && u3.length > 500) {
+          throw new BadRequestException(
+            'La URL de fotoEvidencia3 supera 500 caracteres (límite de columna en base de datos)',
+          );
+        }
+        fotoEvidencia3 = u3;
+      }
+
+      const insertResult = await this.incidenciaAccidenteRepository.insert({
+        idTurno: turno.id,
+        idCliente,
+        idVehiculo: turno.idVehiculo,
+        idCatTipoDano,
+        idCatGradoSeveridad,
+        descripcion: dto.descripcion.trim(),
+        fotoEvidencia1: url1,
+        fotoEvidencia2,
+        fotoEvidencia3,
+        latitud: dto.latitud,
+        longitud: dto.longitud,
+        estatus: EstatusEnum.ACTIVO,
+      });
+      const idNuevo = Number(insertResult.identifiers[0].id);
+      const placas = turno.vehiculo?.placas?.trim() ?? '';
+
+      return {
+        status: 'success',
+        message: 'Incidencia de accidente registrada correctamente',
+        data: {
+          id: idNuevo,
+          idTurno: Number(turno.id),
+          idVehiculo: Number(turno.idVehiculo),
+          nombre: placas
+            ? `Incidencia #${idNuevo} — Turno #${turno.id} — ${placas}`
+            : `Incidencia #${idNuevo} — Turno #${turno.id}`,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException((error as Error).message);
+    }
+  }
+
+  async crearIncidenciaGasolina(
+    dto: CrearIncidenciaGasolinaDto,
+    idCliente: number,
+    idUser: number,
+    files: {
+      fotoTableroAntes?: Express.Multer.File[];
+      fotoTableroDespues?: Express.Multer.File[];
+      fotoBomba?: Express.Multer.File[];
+    },
+  ): Promise<ApiCrudResponse> {
+    const folderGasolina = 'turnos/incidencias/gasolina';
+    try {
+      const fotoAntes = files.fotoTableroAntes?.[0];
+      const fotoBomba = files.fotoBomba?.[0];
+      if (!fotoAntes?.buffer?.length) {
+        throw new BadRequestException('Debe adjuntar la imagen fotoTableroAntes');
+      }
+      if (!fotoBomba?.buffer?.length) {
+        throw new BadRequestException('Debe adjuntar la imagen fotoBomba');
+      }
+
+      const turno = await this.repository.findOne({
+        where: { id: dto.idTurno, idCliente },
+        relations: ['vehiculo'],
+      });
+      if (!turno) {
+        throw new NotFoundException({ message: 'Turno no encontrado' });
+      }
+      if (turno.idVehiculo == null) {
+        throw new BadRequestException('El turno no tiene vehículo asociado');
+      }
+      if (turno.estatus !== EstatusEnum.ACTIVO) {
+        throw new BadRequestException('El turno no está activo');
+      }
+      if (turno.idEstatusTurno !== EnumEstatusTurno.EN_CURSO) {
+        throw new BadRequestException('El turno no está en curso');
+      }
+
+      const urlAntes = await this.procesarArchivo(
+        fotoAntes,
+        folderGasolina,
+        idUser,
+        EnumModulos.TURNOS,
+      );
+      if (!urlAntes) {
+        throw new BadRequestException('No se pudo subir fotoTableroAntes');
+      }
+      if (urlAntes.length > 500) {
+        throw new BadRequestException(
+          'La URL de fotoTableroAntes supera 500 caracteres (límite de columna en base de datos)',
+        );
+      }
+
+      const urlBomba = await this.procesarArchivo(
+        fotoBomba,
+        folderGasolina,
+        idUser,
+        EnumModulos.TURNOS,
+      );
+      if (!urlBomba) {
+        throw new BadRequestException('No se pudo subir fotoBomba');
+      }
+      if (urlBomba.length > 500) {
+        throw new BadRequestException(
+          'La URL de fotoBomba supera 500 caracteres (límite de columna en base de datos)',
+        );
+      }
+
+      let fotoTableroDespues: string | null = null;
+      const fotoDespues = files.fotoTableroDespues?.[0];
+      if (fotoDespues?.buffer?.length) {
+        const u = await this.procesarArchivo(
+          fotoDespues,
+          folderGasolina,
+          idUser,
+          EnumModulos.TURNOS,
+        );
+        if (u && u.length > 500) {
+          throw new BadRequestException(
+            'La URL de fotoTableroDespues supera 500 caracteres (límite de columna en base de datos)',
+          );
+        }
+        fotoTableroDespues = u;
+      }
+
+      const observaciones =
+        dto.observaciones != null && String(dto.observaciones).trim() !== ''
+          ? String(dto.observaciones).trim()
+          : null;
+
+      const insertResult = await this.incidenciaGasolinaRepository.insert({
+        idTurno: turno.id,
+        idCliente,
+        idVehiculo: turno.idVehiculo,
+        fotoTableroAntes: urlAntes,
+        fotoTableroDespues,
+        fotoBomba: urlBomba,
+        kilometraje: dto.kilometraje,
+        litrosCargados: dto.litrosCargados,
+        totalPagado: dto.totalPagado,
+        observaciones,
+        latitud: dto.latitud,
+        longitud: dto.longitud,
+        estatus: EstatusEnum.ACTIVO,
+      });
+      const idNuevo = Number(insertResult.identifiers[0].id);
+      const placas = turno.vehiculo?.placas?.trim() ?? '';
+
+      return {
+        status: 'success',
+        message: 'Incidencia de gasolina registrada correctamente',
+        data: {
+          id: idNuevo,
+          idTurno: Number(turno.id),
+          idVehiculo: Number(turno.idVehiculo),
+          nombre: placas
+            ? `Gasolina #${idNuevo} — Turno #${turno.id} — ${placas}`
+            : `Gasolina #${idNuevo} — Turno #${turno.id}`,
         },
       };
     } catch (error) {
@@ -958,7 +1240,7 @@ export class TurnosService {
     try {
       const [rows, total] = await this.repository.findAndCount({
         where: { idCliente },
-        relations: ['vehiculo', 'estatusTurno'],
+        relations: ['vehiculo', 'estatusTurno', 'bitacoraVehiculo', 'bitacoraVehiculo.tablero', 'bitacoraVehiculo.testigosVehiculo', 'bitacoraVehiculo.nivelesFluidos', 'bitacoraVehiculo.lucesVehiculo', 'bitacoraVehiculo.accesoriosVehiculo', 'bitacoraVehiculo.documentacionVehiculo'],
         order: { fechaApertura: 'DESC' },
         skip: (page - 1) * limit,
         take: limit,
@@ -1205,8 +1487,10 @@ export class TurnosService {
         apertura != null && !Number.isNaN(apertura.getTime())
           ? (fechaCierre.getTime() - apertura.getTime()) / (1000 * 60 * 60)
           : null;
-
-      console.log('duracionHoras', duracionHoras);
+      const duracionEnteraHoras =
+        duracionHoras != null && Number.isFinite(duracionHoras)
+          ? Math.round(duracionHoras)
+          : null;
 
       const idVehiculoTurno = turno.idVehiculo;
       const idClienteTurno = turno.idCliente;
@@ -1230,7 +1514,7 @@ export class TurnosService {
             longitudCierre: dto.longitud,
             evidenciaCierre: urlEvidencia,
             fechaCierre,
-            duracion: duracionHoras,
+            duracion: duracionEnteraHoras,
             idBitacoraCierre: idBv,
           });
 
@@ -1251,7 +1535,7 @@ export class TurnosService {
           id: dto.idTurno,
           nombre: `Turno #${dto.idTurno} - ${placas}`,
           idBitacoraCierre: idBitacoraCierreNuevo,
-          duracion: duracionHoras,
+          duracion: duracionEnteraHoras,
         },
       };
     } catch (error) {

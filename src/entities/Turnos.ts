@@ -88,11 +88,10 @@ export class Turnos {
   @Column('datetime', {
     name: 'FechaCierre',
     nullable: true,
-    default: () => 'CURRENT_TIMESTAMP',
   })
   fechaCierre: Date | null;
 
-  @Column('float', { name: 'Duracion', nullable: true })
+  @Column('int', { name: 'Duracion', nullable: true })
   duracion: number | null;
 
   @Column('tinyint', { name: 'Estatus', nullable: true })
@@ -103,6 +102,7 @@ export class Turnos {
 
   @Column('datetime', {
     name: 'FechaCreacion',
+    nullable: false,
     default: () => 'CURRENT_TIMESTAMP',
     onUpdate: 'CURRENT_TIMESTAMP',
   })
@@ -110,6 +110,7 @@ export class Turnos {
 
   @Column('datetime', {
     name: 'FechaActualizacion',
+    nullable: false,
     default: () => 'CURRENT_TIMESTAMP',
   })
   fechaActualizacion: Date;

@@ -11,6 +11,10 @@ import { LucesVehiculo } from 'src/entities/LucesVehiculo';
 import { DocumentacionVehiculo } from 'src/entities/DocumentacionVehiculo';
 import { AccesoriosVehiculo } from 'src/entities/AccesoriosVehiculo';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
+import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
+import { CatTipoDano } from 'src/entities/CatTipoDano';
+import { CatGradoSeveridad } from 'src/entities/CatGradoSeveridad';
+import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { TurnosController } from './turnos.controller';
 import { TurnosService } from './turnos.service';
 import { S3Module } from 'src/s3/s3.module';
@@ -31,6 +35,10 @@ import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
       DocumentacionVehiculo,
       AccesoriosVehiculo,
       InspeccionVehiculoEx,
+      IncidenciaAccidente,
+      CatTipoDano,
+      CatGradoSeveridad,
+      IncidenciaGasolina,
     ]),
     S3Module,
     EndpointProxyModule,

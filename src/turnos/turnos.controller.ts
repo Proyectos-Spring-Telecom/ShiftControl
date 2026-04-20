@@ -3,16 +3,19 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch,
   Post,
   Request,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor, FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
 import {
   ApiBearerAuth,
@@ -25,6 +28,8 @@ import {
 } from '@nestjs/swagger';
 import { TurnosService } from './turnos.service';
 import { CreateTurnoDto } from './dto/create-turno.dto';
+import { CrearIncidenciaAccidenteDto } from './dto/crear-incidencia-accidente.dto';
+import { CrearIncidenciaGasolinaDto } from './dto/crear-incidencia-gasolina.dto';
 import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import { RegistrarTableroBitacoraDto } from './dto/registrar-tablero-bitacora.dto';
@@ -76,6 +81,18 @@ const TURNOS_INSPECCION_EX_UPLOAD = {
 };
 
 const TURNOS_CIERRE_UPLOAD = {
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req: unknown, file: Express.Multer.File, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowed.includes(file.mimetype)) {
+      return cb(new Error('Solo se permiten PNG, JPG o JPEG'));
+    }
+    cb(null, true);
+  },
+};
+
+const TURNOS_INCIDENCIA_UPLOAD = {
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req: unknown, file: Express.Multer.File, cb) => {
@@ -255,35 +272,147 @@ export class TurnosController {
     );
   }
 
-  @Get('list')
-  @ApiOperation({ summary: 'Lista de turnos activos del cliente' })
-  async findAllList(@Request() req): Promise<ApiResponseCommon> {
-    const idCliente = req.user.idCliente;
-    return this.turnosService.findAllList(idCliente);
-  }
-
-  @Get(':page/:limit')
-  @ApiOperation({ summary: 'Lista paginada de turnos (todos)' })
-  @ApiParam({ name: 'page' })
-  @ApiParam({ name: 'limit' })
-  async findAll(
-    @Param('page', ParseIntPipe) page: number,
-    @Param('limit', ParseIntPipe) limit: number,
+  @Post('incidencias/accidente')
+  @Roles(6)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Registrar incidencia de accidente / daño durante turno en curso',
+    description:
+      'multipart: idTurno, descripcion, latitud, longitud y fotoEvidencia1 obligatorios. idCliente e idVehiculo se toman del token y del turno. Fotos 2 y 3 y catálogos opcionales. S3: carpeta turnos/incidencias.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['idTurno', 'descripcion', 'latitud', 'longitud', 'fotoEvidencia1'],
+      properties: {
+        idTurno: { type: 'integer', example: 1 },
+        descripcion: { type: 'string', example: 'Golpe en parachoques' },
+        latitud: { type: 'number', example: 19.4326077 },
+        longitud: { type: 'number', example: -99.133208 },
+        idCatTipoDano: { type: 'integer', example: 1, description: 'Opcional; default 1' },
+        idCatGradoSeveridad: { type: 'integer', example: 1, description: 'Opcional; default 1' },
+        fotoEvidencia1: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen principal (PNG, JPG, JPEG)',
+        },
+        fotoEvidencia2: { type: 'string', format: 'binary', description: 'Opcional' },
+        fotoEvidencia3: { type: 'string', format: 'binary', description: 'Opcional' },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Incidencia registrada' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validación, turno no en curso, catálogo inválido o sin foto principal',
+  })
+  @ApiResponse({ status: 404, description: 'Turno no encontrado' })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'fotoEvidencia1', maxCount: 1 },
+        { name: 'fotoEvidencia2', maxCount: 1 },
+        { name: 'fotoEvidencia3', maxCount: 1 },
+      ],
+      TURNOS_INCIDENCIA_UPLOAD,
+    ),
+  )
+  async crearIncidenciaAccidente(
+    @Body() dto: CrearIncidenciaAccidenteDto,
+    @UploadedFiles()
+    files: {
+      fotoEvidencia1?: Express.Multer.File[];
+      fotoEvidencia2?: Express.Multer.File[];
+      fotoEvidencia3?: Express.Multer.File[];
+    },
     @Request() req,
-  ): Promise<ApiResponseCommon> {
-    const idCliente = Number(req.user.idCliente);
-    return this.turnosService.findAll(idCliente, page, limit);
-  }
-
-  @Get(':id')
-  @ApiOperation({ summary: 'Obtener turno por ID' })
-  @ApiParam({ name: 'id' })
-  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+  ): Promise<ApiCrudResponse> {
     const idCliente = req.user.idCliente;
-    return this.turnosService.findOne(id, idCliente);
+    const idUser = req.user.userId;
+    return this.turnosService.crearIncidenciaAccidente(dto, idCliente, idUser, files);
   }
 
-  @Patch('tablero')
+  @Post('incidencias/gasolina')
+  @Roles(6)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: 'Registrar recarga de combustible durante turno en curso',
+    description:
+      'multipart: idTurno, latitud, longitud, kilometraje, litrosCargados, totalPagado, fotoTableroAntes y fotoBomba obligatorios. idCliente e idVehiculo desde token y turno. fotoTableroDespues y observaciones opcionales. S3: turnos/incidencias/gasolina.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: [
+        'idTurno',
+        'latitud',
+        'longitud',
+        'kilometraje',
+        'litrosCargados',
+        'totalPagado',
+        'fotoTableroAntes',
+        'fotoBomba',
+      ],
+      properties: {
+        idTurno: { type: 'integer', example: 1 },
+        latitud: { type: 'number', example: 19.4326077 },
+        longitud: { type: 'number', example: -99.133208 },
+        kilometraje: { type: 'number', example: 45230.5 },
+        litrosCargados: { type: 'number', example: 42.5 },
+        totalPagado: { type: 'number', example: 1250.5 },
+        observaciones: { type: 'string', example: 'Pemex Magna' },
+        fotoTableroAntes: {
+          type: 'string',
+          format: 'binary',
+          description: 'Cluster/tablero antes de cargar (PNG, JPG, JPEG)',
+        },
+        fotoTableroDespues: {
+          type: 'string',
+          format: 'binary',
+          description: 'Opcional — tablero después de cargar',
+        },
+        fotoBomba: {
+          type: 'string',
+          format: 'binary',
+          description: 'Bomba/dispensador con litros y total (PNG, JPG, JPEG)',
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 201, description: 'Incidencia de gasolina registrada' })
+  @ApiResponse({
+    status: 400,
+    description: 'Validación, turno no en curso o archivos obligatorios faltantes',
+  })
+  @ApiResponse({ status: 404, description: 'Turno no encontrado' })
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'fotoTableroAntes', maxCount: 1 },
+        { name: 'fotoTableroDespues', maxCount: 1 },
+        { name: 'fotoBomba', maxCount: 1 },
+      ],
+      TURNOS_INCIDENCIA_UPLOAD,
+    ),
+  )
+  async crearIncidenciaGasolina(
+    @Body() dto: CrearIncidenciaGasolinaDto,
+    @UploadedFiles()
+    files: {
+      fotoTableroAntes?: Express.Multer.File[];
+      fotoTableroDespues?: Express.Multer.File[];
+      fotoBomba?: Express.Multer.File[];
+    },
+    @Request() req,
+  ): Promise<ApiCrudResponse> {
+    const idCliente = req.user.idCliente;
+    const idUser = req.user.userId;
+    return this.turnosService.crearIncidenciaGasolina(dto, idCliente, idUser, files);
+  }
+
+  @Post('tablero')
   @Roles(6)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -357,7 +486,7 @@ export class TurnosController {
     );
   }
 
-  @Patch('testigos')
+  @Post('testigos')
   @Roles(6)
   @ApiOperation({
     summary: 'Registrar testigos del vehículo (bitácora en turno en curso)',
@@ -408,7 +537,7 @@ export class TurnosController {
     return this.turnosService.registrarTestigosDesdeBitacora(dto, idCliente);
   }
 
-  @Patch('niveles-fluidos')
+  @Post('niveles-fluidos')
   @Roles(6)
   @ApiOperation({
     summary: 'Registrar niveles de fluidos (bitácora en turno en curso)',
@@ -462,7 +591,7 @@ export class TurnosController {
     return this.turnosService.registrarNivelesFluidosDesdeBitacora(dto, idCliente);
   }
 
-  @Patch('luces-vehiculo')
+  @Post('luces-vehiculo')
   @Roles(6)
   @ApiOperation({
     summary: 'Registrar luces del vehículo (bitácora en turno en curso)',
@@ -516,7 +645,7 @@ export class TurnosController {
     return this.turnosService.registrarLucesDesdeBitacora(dto, idCliente);
   }
 
-  @Patch('documentacion-vehiculo')
+  @Post('documentacion-vehiculo')
   @Roles(6)
   @ApiOperation({
     summary: 'Registrar documentación del vehículo (bitácora en turno en curso)',
@@ -570,7 +699,7 @@ export class TurnosController {
     return this.turnosService.registrarDocumentacionDesdeBitacora(dto, idCliente);
   }
 
-  @Patch('accesorios-vehiculo')
+  @Post('accesorios-vehiculo')
   @Roles(6)
   @ApiOperation({
     summary: 'Registrar accesorios del vehículo (bitácora en turno en curso)',
@@ -624,7 +753,7 @@ export class TurnosController {
     return this.turnosService.registrarAccesoriosDesdeBitacora(dto, idCliente);
   }
 
-  @Patch('inspeccion-vehiculo-ex')
+  @Post('inspeccion-vehiculo-ex')
   @Roles(6)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -960,6 +1089,34 @@ export class TurnosController {
     const idCliente = req.user.idCliente;
     const idUser = req.user.userId;
     return this.turnosService.updateEstatus(idTurno, idCliente, idUser);
+  }
+
+  @Get('list')
+  @ApiOperation({ summary: 'Lista de turnos activos del cliente' })
+  async findAllList(@Request() req): Promise<ApiResponseCommon> {
+    const idCliente = req.user.idCliente;
+    return this.turnosService.findAllList(idCliente);
+  }
+
+  @Get(':page/:limit')
+  @ApiOperation({ summary: 'Lista paginada de turnos (todos)' })
+  @ApiParam({ name: 'page' })
+  @ApiParam({ name: 'limit' })
+  async findAll(
+    @Param('page', ParseIntPipe) page: number,
+    @Param('limit', ParseIntPipe) limit: number,
+    @Request() req,
+  ): Promise<ApiResponseCommon> {
+    const idCliente = Number(req.user.idCliente);
+    return this.turnosService.findAll(idCliente, page, limit);
+  }
+
+  @Get(':id')
+  @ApiOperation({ summary: 'Obtener turno por ID' })
+  @ApiParam({ name: 'id' })
+  async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
+    const idCliente = req.user.idCliente;
+    return this.turnosService.findOne(id, idCliente);
   }
 
   /*   @Delete(':id')
