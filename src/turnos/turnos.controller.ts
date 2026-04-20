@@ -21,6 +21,8 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiConsumes,
+  ApiNotFoundResponse,
+  ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -39,6 +41,7 @@ import { RegistrarLucesBitacoraDto } from './dto/registrar-luces-bitacora.dto';
 import { RegistrarDocumentacionBitacoraDto } from './dto/registrar-documentacion-bitacora.dto';
 import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitacora.dto';
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
+import { turnoFindOneOkExample } from './examples/turno-find-one-ok.example';
 import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
@@ -1095,7 +1098,8 @@ export class TurnosController {
   @ApiOperation({ summary: 'Lista de turnos activos del cliente' })
   async findAllList(@Request() req): Promise<ApiResponseCommon> {
     const idCliente = req.user.idCliente;
-    return this.turnosService.findAllList(idCliente);
+    const rol = Number(req.user.rol);
+    return this.turnosService.findAllList(idCliente, rol);
   }
 
   @Get(':page/:limit')
@@ -1108,27 +1112,30 @@ export class TurnosController {
     @Request() req,
   ): Promise<ApiResponseCommon> {
     const idCliente = Number(req.user.idCliente);
-    return this.turnosService.findAll(idCliente, page, limit);
+    const rol = Number(req.user.rol);
+    return this.turnosService.findAll(idCliente, rol, page, limit);
   }
+  
 
   @Get(':id')
-  @ApiOperation({ summary: 'Obtener turno por ID' })
+  @ApiOperation({
+    summary: 'Obtener turno por ID',
+    description:
+      'Consultas SQL directas. Resumen plano del turno más vehículo, usuario, cliente y estatus. `bitacoraApertura` y `bitacoraCierre` son objetos JSON con la fila de bitácora y anidados tablero, testigos, niveles de fluidos, luces, accesorios y documentación. Incluye inspecciones exterior (con catálogos) e incidencias de accidente y gasolina activas. Ejemplo cURL: `GET /api/turnos/1` con cabecera `Authorization: Bearer <token>`.',
+  })
+  @ApiOkResponse({
+    description: 'Detalle del turno (ejemplo real con dos bitácoras e inspecciones).',
+    content: {
+      'application/json': {
+        example: turnoFindOneOkExample,
+      },
+    },
+  })
+  @ApiNotFoundResponse({ description: 'Turno no encontrado para el cliente del token' })
   @ApiParam({ name: 'id' })
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const idCliente = req.user.idCliente;
     return this.turnosService.findOne(id, idCliente);
   }
 
-  /*   @Delete(':id')
-  @Roles(1)
-  @ApiOperation({ summary: 'Eliminar turno (baja lógica)' })
-  @ApiParam({ name: 'id' })
-  async remove(
-    @Param('id', ParseIntPipe) id: number,
-    @Request() req,
-  ): Promise<ApiCrudResponse> {
-    const idCliente = req.user.idCliente;
-    const idUser = req.user.userId;
-    return this.turnosService.remove(id, idCliente, idUser);
-  } */
 }

@@ -20,6 +20,7 @@ import { TurnosService } from './turnos.service';
 import { S3Module } from 'src/s3/s3.module';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
+import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
     S3Module,
     EndpointProxyModule,
     VehiculosModule,
+    TenantFilterModule,
   ],
   controllers: [TurnosController],
   providers: [TurnosService],

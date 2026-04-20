@@ -45,6 +45,8 @@ import { S3Service } from 'src/s3/s3.service';
 import { BehaviorIqAuthService } from 'src/integration/behavioriq/behavioriq-auth.service';
 import { BehaviorIqPlateService } from 'src/integration/behavioriq/behavioriq-plate.service';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
+import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
+import { loadTurnoDetalleSql } from './turnos-find-one-raw';
 import type { Request } from 'express';
 
 const OCR_MIN_CONFIDENCE = 0.7;
@@ -185,35 +187,78 @@ export class TurnosService {
     private readonly behaviorIqAuth: BehaviorIqAuthService,
     private readonly behaviorIqPlate: BehaviorIqPlateService,
     private readonly vehiculosService: VehiculosService,
+    private readonly tenantFilter: TenantFilterService,
   ) {}
 
   private normalizePlacaKey(value: string): string {
     return value.toUpperCase().replace(/[-\s]/g, '');
   }
 
-  private mapTurnoRow(t: Turnos) {
+  /** Mapea fila de query SQL a un objeto plano (mismas columnas/alias del SELECT, sin objetos anidados). */
+  private mapTurnoQueryRow(row: Record<string, unknown>) {
+    const num = (v: unknown): number | null =>
+      v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null;
     return {
-      ...t,
+      id: Number(row.id),
+      idVehiculo: num(row.idVehiculo),
+      idCliente: num(row.idCliente),
+      idUsuario: num(row.idUsuario),
+      idBitacoraApertura: num(row.idBitacoraApertura),
+      evidenciaApertura: (row.evidenciaApertura as string | null) ?? null,
+      longitudApertura: num(row.longitudApertura),
+      latitudApertura: num(row.latitudApertura),
+      fechaApertura: (row.fechaApertura as Date | null) ?? null,
+      idBitacoraCierre: num(row.idBitacoraCierre),
+      evidenciaCierre: (row.evidenciaCierre as string | null) ?? null,
+      longitudCierre: num(row.longitudCierre),
+      latitudCierre: num(row.latitudCierre),
+      fechaCierre: (row.fechaCierre as Date | null) ?? null,
+      duracion: num(row.duracion),
+      estatus: num(row.estatus),
+      idEstatusTurno: num(row.idEstatusTurno),
+      fechaCreacion: (row.fechaCreacion as Date | null) ?? null,
+      fechaActualizacion: (row.fechaActualizacion as Date | null) ?? null,
+      placas: (row.placas as string | null) ?? null,
+      fotoFrente: (row.fotoFrente as string | null) ?? null,
+      vehiculoId: num(row.vehiculoId),
+      vehiculoIdCliente: num(row.vehiculoIdCliente),
+      estatusTurnoId: num(row.etId),
+      estatusTurnoNombre: (row.etNombre as string | null) ?? null,
+    };
+  }
+
+  /** Misma forma plana que `mapTurnoQueryRow`, a partir de entidad + relaciones cargadas. */
+  private mapTurnoEntityToFlat(t: Turnos) {
+    const num = (v: unknown): number | null =>
+      v != null && v !== '' && !Number.isNaN(Number(v)) ? Number(v) : null;
+    const v = t.vehiculo;
+    const et = t.estatusTurno;
+    return {
       id: Number(t.id),
-      idVehiculo: t.idVehiculo != null ? Number(t.idVehiculo) : null,
-      idCliente: t.idCliente != null ? Number(t.idCliente) : null,
-      idUsuario: t.idUsuario != null ? Number(t.idUsuario) : null,
-      idBitacoraApertura:
-        t.idBitacoraApertura != null ? Number(t.idBitacoraApertura) : null,
+      idVehiculo: num(t.idVehiculo),
+      idCliente: num(t.idCliente),
+      idUsuario: num(t.idUsuario),
+      idBitacoraApertura: num(t.idBitacoraApertura),
       evidenciaApertura: t.evidenciaApertura ?? null,
-      idBitacoraCierre: t.idBitacoraCierre != null ? Number(t.idBitacoraCierre) : null,
+      longitudApertura: num(t.longitudApertura),
+      latitudApertura: num(t.latitudApertura),
+      fechaApertura: t.fechaApertura ?? null,
+      idBitacoraCierre: num(t.idBitacoraCierre),
       evidenciaCierre: t.evidenciaCierre ?? null,
-      idEstatusTurno: t.idEstatusTurno != null ? Number(t.idEstatusTurno) : null,
-      vehiculo: t.vehiculo
-        ? {
-            ...t.vehiculo,
-            id: Number(t.vehiculo.id),
-            idCliente: Number(t.vehiculo.idCliente),
-          }
-        : t.vehiculo,
-      estatusTurno: t.estatusTurno
-        ? { ...t.estatusTurno, id: Number(t.estatusTurno.id) }
-        : t.estatusTurno,
+      longitudCierre: num(t.longitudCierre),
+      latitudCierre: num(t.latitudCierre),
+      fechaCierre: t.fechaCierre ?? null,
+      duracion: num(t.duracion),
+      estatus: num(t.estatus),
+      idEstatusTurno: num(t.idEstatusTurno),
+      fechaCreacion: t.fechaCreacion ?? null,
+      fechaActualizacion: t.fechaActualizacion ?? null,
+      placas: v?.placas ?? null,
+      fotoFrente: v?.fotoFrente ?? null,
+      vehiculoId: v != null ? Number(v.id) : null,
+      vehiculoIdCliente: v != null ? Number(v.idCliente) : null,
+      estatusTurnoId: et != null ? Number(et.id) : null,
+      estatusTurnoNombre: et?.nombre ?? null,
     };
   }
 
@@ -358,8 +403,9 @@ export class TurnosService {
         data: {
           id: Number(saved.id),
           nombre: `Turno #${saved.id} - ${vehiculo.placas}`,
+          idTurno: Number(saved.id),
           idBitacoraApertura,
-          vehiculoPorPlaca,
+          ...vehiculoPorPlaca,
         },
       };
     } catch (error) {
@@ -714,7 +760,6 @@ export class TurnosService {
         data: {
           id: idTablero,
           nombre: `Tablero #${idTablero}`,
-          idTablero,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -809,7 +854,6 @@ export class TurnosService {
         data: {
           id: idTestigos,
           nombre: `Testigos #${idTestigos}`,
-          idTestigosVehiculo: idTestigos,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -887,7 +931,6 @@ export class TurnosService {
         data: {
           id: idNiveles,
           nombre: `NivelesFluidos #${idNiveles}`,
-          idNivelesFluidos: idNiveles,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -963,7 +1006,6 @@ export class TurnosService {
         data: {
           id: idLuces,
           nombre: `LucesVehiculo #${idLuces}`,
-          idLucesVehiculo: idLuces,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -1042,7 +1084,6 @@ export class TurnosService {
         data: {
           id: idDoc,
           nombre: `DocumentacionVehiculo #${idDoc}`,
-          idDocumentacionVehiculo: idDoc,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -1121,7 +1162,6 @@ export class TurnosService {
         data: {
           id: idAcc,
           nombre: `AccesoriosVehiculo #${idAcc}`,
-          idAccesoriosVehiculo: idAcc,
           idBitacoraVehiculo: dto.idBitacoraVehiculo,
         },
       };
@@ -1218,34 +1258,123 @@ export class TurnosService {
     }
   }
 
-  async findAllList(idCliente: number): Promise<ApiResponseCommon> {
+  async findAllList(idCliente: number, rol: number): Promise<ApiResponseCommon> {
     try {
-      const rows = await this.repository.find({
-        where: { idCliente, estatus: 1 },
-        order: { fechaApertura: 'DESC' },
-        relations: ['vehiculo', 'estatusTurno'],
-      });
-      const data = rows.map((item) => this.mapTurnoRow(item));
+      const tenant = await this.tenantFilter.build(rol, idCliente, 't');
+      if (tenant.sinAcceso) {
+        return { data: [] };
+      }
+
+      const sql = `
+      SELECT
+        t.Id AS id,
+        t.IdVehiculo AS idVehiculo,
+        t.IdCliente AS idCliente,
+        t.IdUsuario AS idUsuario,
+        t.IdBitacoraApertura AS idBitacoraApertura,
+        t.EvidenciaApertura AS evidenciaApertura,
+        t.LongitudApertura AS longitudApertura,
+        t.LatitudApertura AS latitudApertura,
+        t.FechaApertura AS fechaApertura,
+        t.IdBitacoraCierre AS idBitacoraCierre,
+        t.EvidenciaCierre AS evidenciaCierre,
+        t.LongitudCierre AS longitudCierre,
+        t.LatitudCierre AS latitudCierre,
+        t.FechaCierre AS fechaCierre,
+        t.Duracion AS duracion,
+        t.Estatus AS estatus,
+        t.IDEstatusTurno AS idEstatusTurno,
+        t.FechaCreacion AS fechaCreacion,
+        t.FechaActualizacion AS fechaActualizacion,
+        v.Placas AS placas,
+        v.FotoFrente AS fotoFrente,
+        v.Id AS vehiculoId,
+        v.IdCliente AS vehiculoIdCliente,
+        et.Id AS etId,
+        et.Nombre AS etNombre
+      FROM Turnos t
+      LEFT JOIN Vehiculos v ON v.Id = t.IdVehiculo
+      LEFT JOIN CatEstatusTurno et ON et.Id = t.IDEstatusTurno
+      WHERE t.Estatus = 1 ${tenant.sql}
+      ORDER BY t.FechaApertura DESC
+    `;
+      const rows = await this.repository.query(sql, [...tenant.params]);
+      const data = rows.map((item: Record<string, unknown>) => this.mapTurnoQueryRow(item));
       return { data };
     } catch (error) {
-      throw new BadRequestException(error);
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new BadRequestException((error as Error)?.message);
     }
   }
 
   async findAll(
     idCliente: number,
+    rol: number,
     page: number,
     limit: number,
   ): Promise<ApiResponseCommon> {
     try {
-      const [rows, total] = await this.repository.findAndCount({
-        where: { idCliente },
-        relations: ['vehiculo', 'estatusTurno', 'bitacoraVehiculo', 'bitacoraVehiculo.tablero', 'bitacoraVehiculo.testigosVehiculo', 'bitacoraVehiculo.nivelesFluidos', 'bitacoraVehiculo.lucesVehiculo', 'bitacoraVehiculo.accesoriosVehiculo', 'bitacoraVehiculo.documentacionVehiculo'],
-        order: { fechaApertura: 'DESC' },
-        skip: (page - 1) * limit,
-        take: limit,
-      });
-      const data = rows.map((item) => this.mapTurnoRow(item));
+      const tenant = await this.tenantFilter.build(rol, idCliente, 't');
+      if (tenant.sinAcceso) {
+        return {
+          data: [],
+          paginated: { total: 0, page, lastPage: 1 },
+        };
+      }
+
+      const offset = (page - 1) * limit;
+
+      const sqlData = `
+      SELECT
+        t.Id AS id,
+        t.IdVehiculo AS idVehiculo,
+        t.IdCliente AS idCliente,
+        t.IdUsuario AS idUsuario,
+        t.IdBitacoraApertura AS idBitacoraApertura,
+        t.EvidenciaApertura AS evidenciaApertura,
+        t.LongitudApertura AS longitudApertura,
+        t.LatitudApertura AS latitudApertura,
+        t.FechaApertura AS fechaApertura,
+        t.IdBitacoraCierre AS idBitacoraCierre,
+        t.EvidenciaCierre AS evidenciaCierre,
+        t.LongitudCierre AS longitudCierre,
+        t.LatitudCierre AS latitudCierre,
+        t.FechaCierre AS fechaCierre,
+        t.Duracion AS duracion,
+        t.Estatus AS estatus,
+        t.IDEstatusTurno AS idEstatusTurno,
+        t.FechaCreacion AS fechaCreacion,
+        t.FechaActualizacion AS fechaActualizacion,
+        v.Placas AS placas,
+        v.FotoFrente AS fotoFrente,
+        v.Id AS vehiculoId,
+        v.IdCliente AS vehiculoIdCliente,
+        et.Id AS etId,
+        et.Nombre AS etNombre
+      FROM Turnos t
+      LEFT JOIN Vehiculos v ON v.Id = t.IdVehiculo
+      LEFT JOIN CatEstatusTurno et ON et.Id = t.IDEstatusTurno
+      WHERE 1 = 1 ${tenant.sql}
+      ORDER BY t.FechaApertura DESC
+      LIMIT ? OFFSET ?
+    `;
+      const sqlCount = `
+      SELECT COUNT(*) AS total
+      FROM Turnos t
+      WHERE 1 = 1 ${tenant.sql}
+    `;
+
+      const [dataRows, totalResult] = await Promise.all([
+        this.repository.query(sqlData, [...tenant.params, limit, offset]),
+        this.repository.query(sqlCount, [...tenant.params]),
+      ]);
+
+      const total = Number((totalResult[0] as { total?: unknown })?.total ?? 0);
+      const data = dataRows.map((item: Record<string, unknown>) =>
+        this.mapTurnoQueryRow(item),
+      );
       return {
         data,
         paginated: {
@@ -1255,6 +1384,9 @@ export class TurnosService {
         },
       };
     } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
       throw new BadRequestException(
         (error as Error).message || 'Error al obtener turnos',
       );
@@ -1263,14 +1395,15 @@ export class TurnosService {
 
   async findOne(id: number, idCliente: number) {
     try {
-      const turno = await this.repository.findOne({
-        where: { id, idCliente },
-        relations: ['vehiculo', 'estatusTurno'],
-      });
-      if (!turno) {
+      const data = await loadTurnoDetalleSql(
+        (sql, params) => this.repository.query(sql, params),
+        id,
+        idCliente,
+      );
+      if (!data) {
         throw new NotFoundException({ message: 'Turno no encontrado' });
       }
-      return { data: this.mapTurnoRow(turno) };
+      return { data };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1306,6 +1439,7 @@ export class TurnosService {
     if (!turno || turno.idCliente !== idCliente) {
       throw new BadRequestException('El turno asociado no es válido para este cliente');
     }
+    
 
     const faltantes = this.bitacoraVehiculoCamposFaltantes(bitacora);
     if (faltantes.length > 0) {

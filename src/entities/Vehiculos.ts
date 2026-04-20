@@ -14,4 +14,20 @@ export class Vehiculos {
 
   @Column('varchar', { name: 'Placas', length: 10 })
   placas: string;
+
+  @Column('varchar', { name: 'FotoFrente', length: 500, nullable: true })
+  fotoFrente: string | null;
+
+  @Column('datetime', {
+    name: 'FechaCreacion',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  fechaCreacion: Date;
+
+  @Column('datetime', {
+    name: 'FechaActualizacion',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
+  fechaActualizacion: Date;
 }

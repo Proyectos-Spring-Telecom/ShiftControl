@@ -9,6 +9,25 @@ import type { Request } from 'express';
 export class VehiculosService {
   private readonly logger = new Logger(VehiculosService.name);
 
+  /** URL de foto frontal desde payload Next (varias convenciones de nombre). */
+  private pickFotoFrente(o: Record<string, unknown>): string | null | undefined {
+    const raw =
+      o['fotoFrente'] ??
+      o['FotoFrente'] ??
+      o['foto_frente'] ??
+      o['fotoFrenteUrl'] ??
+      o['fotoFrenteURL'];
+    if (raw === undefined) return undefined;
+    if (raw === null) return null;
+    const s = String(raw).trim();
+    if (!s) return null;
+    if (s.length > 500) {
+      this.logger.warn(`FotoFrente truncada a 500 caracteres para vehículo id=${o['id']}`);
+      return s.slice(0, 500);
+    }
+    return s;
+  }
+
   constructor(
     private readonly endpointProxy: EndpointProxyService,
     @InjectRepository(Vehiculos)
@@ -66,7 +85,8 @@ export class VehiculosService {
           | undefined;
         const placa = placaRaw != null ? String(placaRaw).trim() : '';
         if (Number.isFinite(vid) && vid > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          this.ensureShadow(vid, idCliente, placa).catch((err) =>
+          const fotoFrente = this.pickFotoFrente(vehiculo);
+          this.ensureShadow(vid, idCliente, placa, fotoFrente).catch((err) =>
             this.logger.warn(
               `Error creando sombra vehiculo ${id}: ${(err as Error).message}`,
             ),
@@ -105,7 +125,8 @@ export class VehiculosService {
           idCliente > 0 &&
           placaNorm
         ) {
-          this.ensureShadow(vid, idCliente, placaNorm).catch((err) =>
+          const fotoFrente = this.pickFotoFrente(vehiculo);
+          this.ensureShadow(vid, idCliente, placaNorm, fotoFrente).catch((err) =>
             this.logger.warn(
               `Error creando sombra vehiculo placa=${placa}: ${(err as Error).message}`,
             ),
@@ -121,7 +142,12 @@ export class VehiculosService {
    * Crea o actualiza el registro sombra de un vehículo en shift_db.
    * Se usa internamente y también lo va a llamar TurnosService.
    */
-  async ensureShadow(id: number, idCliente: number, placas: string): Promise<void> {
+  async ensureShadow(
+    id: number,
+    idCliente: number,
+    placas: string,
+    fotoFrente?: string | null,
+  ): Promise<void> {
     const placasNorm = placas.trim().slice(0, 10);
     if (!placasNorm) {
       this.logger.warn(`ensureShadow omitido: placas vacías id=${id}`);
@@ -136,15 +162,24 @@ export class VehiculosService {
           id,
           idCliente,
           placas: placasNorm,
+          fotoFrente: fotoFrente === undefined ? null : fotoFrente,
         }),
       );
       this.logger.log(`Vehículo sombra creado id=${id} placas=${placasNorm}`);
       return;
     }
 
+    let changed = false;
     if (existing.placas !== placasNorm || existing.idCliente !== idCliente) {
       existing.placas = placasNorm;
       existing.idCliente = idCliente;
+      changed = true;
+    }
+    if (fotoFrente !== undefined && existing.fotoFrente !== fotoFrente) {
+      existing.fotoFrente = fotoFrente;
+      changed = true;
+    }
+    if (changed) {
       await this.vehiculosRepository.save(existing);
       this.logger.log(`Vehículo sombra actualizado id=${id} placas=${placasNorm}`);
     }
@@ -175,7 +210,8 @@ export class VehiculosService {
         const placaRaw = (o['placa'] ?? o['placas']) as string | undefined;
         const placa = placaRaw != null ? String(placaRaw).trim() : '';
         if (Number.isFinite(id) && id > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          await this.ensureShadow(id, idCliente, placa);
+          const fotoFrente = this.pickFotoFrente(o);
+          await this.ensureShadow(id, idCliente, placa, fotoFrente);
         }
       }
     }
@@ -222,7 +258,8 @@ export class VehiculosService {
         const placaRaw = (o['placa'] ?? o['placas']) as string | undefined;
         const placa = placaRaw != null ? String(placaRaw).trim() : '';
         if (Number.isFinite(id) && id > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          await this.ensureShadow(id, idCliente, placa);
+          const fotoFrente = this.pickFotoFrente(o);
+          await this.ensureShadow(id, idCliente, placa, fotoFrente);
           count++;
         }
       }

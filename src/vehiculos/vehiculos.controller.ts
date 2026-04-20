@@ -34,9 +34,9 @@ export class VehiculosController {
   @ApiOperation({
     summary: 'Sincronizar vehículos desde Next',
     description:
-      'Llama a Next API, trae todos los vehículos activos del cliente y los copia a la tabla sombra local. Usar para carga inicial o resincronización manual.',
+      'Llama a Next API, trae todos los vehículos activos del cliente y los copia a la tabla sombra local (Id, IdCliente, Placas, FotoFrente). Usar para carga inicial o resincronización manual.',
   })
-  @ApiResponse({ status: 200, description: 'Sincronización completada' })
+  @ApiResponse({ status: 200, description: 'Sincronización completada (incluye FotoFrente si Next la envía)' })
   @ApiResponse({ status: 401, description: 'No autorizado' })
   async sync(@Req() req: Request) {
     return this.vehiculosService.syncVehiculos(req);
