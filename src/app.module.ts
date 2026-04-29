@@ -15,6 +15,7 @@ import { CatTipoDanoModule } from './cat-tipo-dano/cat-tipo-dano.module';
 import { CatVistaVehiculoModule } from './cat-vista-vehiculo/cat-vista-vehiculo.module';
 import { VehiculosModule } from './vehiculos/vehiculos.module';
 import { TurnosModule } from './turnos/turnos.module';
+import { ReportesModule } from './reportes/reportes.module';
 import Joi from 'joi';
 
 @Module({
@@ -123,6 +124,8 @@ import Joi from 'joi';
     VehiculosModule,
 
     TurnosModule,
+
+    ReportesModule,
   ],
   providers: [
     {

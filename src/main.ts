@@ -48,6 +48,7 @@ async function bootstrap() {
     .addTag('Cat Tipo Daño', 'Catálogo tipo de daño')
     .addTag('Cat Vista Vehiculo', 'Catálogo vista del vehículo')
     .addTag('Vehiculos', 'Consulta y sombra de vehículos (proxy Next)')
+    .addTag('Reportes PDF', 'Reportes PDF e HTML de turnos y vehículos (Puppeteer)')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
