@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
+import { AuthNextFaceProxyController } from './auth-next-face-proxy.controller';
+import { AuthLoginShadowService } from './auth-login-shadow.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
@@ -27,8 +29,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
       }),
     }),
   ],
-  controllers: [AuthController],
-  providers: [JwtStrategy],
+  controllers: [AuthController, AuthNextFaceProxyController],
+  providers: [JwtStrategy, AuthLoginShadowService],
   exports: [JwtModule],
 })
 export class AuthModule {}

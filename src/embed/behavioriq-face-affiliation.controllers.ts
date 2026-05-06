@@ -5,16 +5,16 @@ import {
   Controller,
   HttpCode,
   HttpStatus,
-  InternalServerErrorException,
   Post,
   Query,
   Req,
   UnauthorizedException,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -23,6 +23,7 @@ import {
   ApiConsumes,
   ApiForbiddenResponse,
   ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -164,6 +165,58 @@ export class EmbedBehaviorIqController extends BehaviorIqFaceBffBaseController {
     const token = await this.behaviorIqServiceToken();
     return this.behaviorIqEmbed.embed(file, token);
   }
+  
+
+  @Post('liveness-check')
+  @ApiOperation({
+    summary: 'Prueba de vida (liveness) con 2 imágenes (proxy BehaviorIQ)',
+    description:
+      'Equivale a `POST {BEHAVIORIQ_BASE_URL}/embed/liveness-check`.\n\n' +
+      '**Auth:** enviar solo `Authorization: Bearer <JWT ShiftControl>`.\n\n' +
+      '**Body:** `multipart/form-data`, campo `files` con exactamente 2 imágenes (PNG o JPEG, máx. 12 MB c/u).\n\n' +
+      'Valida movimiento entre capturas y anti-spoof. Devuelve `passed`, `reason`, `score`.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['files'],
+      properties: {
+        files: {
+          type: 'array',
+          items: { type: 'string', format: 'binary' },
+          minItems: 2,
+          maxItems: 2,
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    description: 'Resultado de prueba de vida',
+    schema: {
+      example: { passed: true, reason: 'Movimiento detectado', score: 0.91 },
+      properties: {
+        passed: { type: 'boolean' },
+        reason: { type: 'string', nullable: true },
+        score: { type: 'number', nullable: true },
+      },
+    },
+  })
+  @ApiBadRequestResponse({
+    description: 'Se requieren exactamente 2 imágenes en `files` y MIME permitido',
+  })
+  @ApiUnauthorizedResponse({ description: 'JWT de ShiftControl inválido o ausente' })
+  @ApiResponse({ status: 403, description: 'Servicio de rostro no habilitado para el tenant' })
+  @ApiServiceUnavailableResponse({ description: 'BehaviorIQ no disponible' })
+  @ApiInternalServerErrorResponse({ description: 'Error al comunicar con BehaviorIQ' })
+  @UseInterceptors(FilesInterceptor('files', 2, EMBED_FACE_IMAGE_MULTER))
+  async livenessCheck(@UploadedFiles() files: Express.Multer.File[]) {
+    if (!Array.isArray(files) || files.length !== 2) {
+      throw new BadRequestException('Debe adjuntar exactamente 2 imágenes en el campo files');
+    }
+    const token = await this.behaviorIqServiceToken();
+    return this.behaviorIqEmbed.livenessCheck(files, token);
+  }
 }
 
 /**
@@ -187,35 +240,55 @@ export class RostrosBehaviorIqController extends BehaviorIqFaceBffBaseController
     summary: 'Registrar rostro con embeddings (proxy BehaviorIQ)',
     description:
       'Equivale a `POST {BEHAVIORIQ_BASE_URL}/rostros`.\n\n' +
-      '**Auth:** enviar solo `Authorization: Bearer <JWT ShiftControl>`.\n\n' +
+      'Después de crear el rostro en BehaviorIQ, ShiftControl llama a Next ' +
+      '`POST {ENDPOINT_URL}/api/usuarios/face-auth` con el mismo `Authorization` y body `{ idFaceAuth }` ' +
+      '(id devuelto por BehaviorIQ).\n\n' +
+      '**Auth:** `Authorization: Bearer <JWT ShiftControl>` (Next + guards locales).\n\n' +
       '**Cuerpo:** datos personales + `embeddings` o `embeddingsList` (1–10 vectores 512D), ' +
       'obtenidos con `POST /api/embed`.\n\n' +
-      'Usuario no root en BehaviorIQ: `idCliente` e `idSolucion` deben coincidir con el token allí. ' +
+      'Hacia BehaviorIQ se envían siempre `idCliente=2` e `idSolucion=2` (no van en el body del cliente). ' +
       'Ver `docs/EMBED_BFF_SHIFTCONTROL.md` y `docs/PROCESO_BEHAVIORIQ.MD`.',
   })
   @ApiBody({ type: CreateRostroDto })
   @ApiResponse({
     status: 201,
-    description: 'Creado en BehaviorIQ',
+    description:
+      'BehaviorIQ: rostro creado; Next: `IdFaceAuth` registrado (`POST …/api/usuarios/face-auth`).',
     schema: { example: { success: true, id: 123 } },
   })
-  @ApiUnauthorizedResponse({ description: 'JWT de ShiftControl inválido o ausente' })
-  @ApiForbiddenResponse({ description: 'Registro fuera del cliente/solución permitido' })
-  @ApiConflictResponse({ description: 'Rostro duplicado en la solución' })
+  @ApiUnauthorizedResponse({
+    description:
+      'JWT de ShiftControl inválido o ausente; o Next rechazó el Bearer al sincronizar `face-auth` (401).',
+  })
+  @ApiForbiddenResponse({ description: 'Registro fuera del cliente/solución permitido (BehaviorIQ)' })
+  @ApiConflictResponse({
+    description:
+      'Rostro duplicado en BehaviorIQ (409), o usuario ya tiene rostro en tabla sombra ShiftControl',
+  })
   @ApiBadRequestResponse({
-    description: 'Falta `embeddings` y `embeddingsList`, o más de 10 muestras en `embeddingsList`',
+    description:
+      'Body inválido (falta `embeddings`/`embeddingsList`, más de 10 muestras, etc.). ' +
+      'Tras crear en BehaviorIQ, Next puede responder **400**: el usuario ya tiene `IdFaceAuth` (rostro afiliado).',
+  })
+  @ApiNotFoundResponse({
+    description:
+      'Next (`POST …/api/usuarios/face-auth`): usuario del token no encontrado (404).',
   })
   @ApiResponse({
     status: 200,
     description: 'Algunos despliegues de BehaviorIQ responden 200 con success',
   })
-  @ApiInternalServerErrorResponse({ description: 'Error al comunicar con BehaviorIQ' })
+  @ApiInternalServerErrorResponse({
+    description:
+      'Error al comunicar con BehaviorIQ o con Next; o respuesta inesperada al sincronizar `face-auth`.',
+  })
   async crear(@Body() dto: CreateRostroDto, @Req() req: Request) {
     const userId = Number((req as Request & { user?: { userId?: number } }).user?.userId);
     if (!Number.isFinite(userId) || userId <= 0) {
       throw new UnauthorizedException('JWT de ShiftControl inválido o ausente');
     }
 
+    
     const usuario = await this.usuariosRepository.findOne({ where: { id: userId } });
     if (!usuario) {
       throw new BadRequestException('No se encontró el usuario autenticado');
@@ -226,18 +299,14 @@ export class RostrosBehaviorIqController extends BehaviorIqFaceBffBaseController
 
     const body = toBehaviorIqCrearRostroBody(dto);
     const token = await this.behaviorIqServiceToken();
-    const response = await this.behaviorIqEmbed.crearRostro(body, token);
-
-    if (response.success === true) {
-      if (!Number.isFinite(response.id)) {
-        throw new InternalServerErrorException(
-          'BehaviorIQ respondió success=true pero sin id de rostro',
-        );
-      }
-      usuario.idFaceAuth = Number(response.id);
-      await this.usuariosRepository.save(usuario);
+    const authorization =
+      typeof req.headers.authorization === 'string' ? req.headers.authorization.trim() : '';
+    if (!authorization) {
+      throw new UnauthorizedException('Authorization ausente para sincronizar con Next');
     }
 
-    return response;
+    return this.behaviorIqEmbed.crearRostro(body, token, {
+      nextAuthorization: authorization,
+    });
   }
 }

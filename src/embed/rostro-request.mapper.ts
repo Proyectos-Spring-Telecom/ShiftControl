@@ -1,6 +1,10 @@
 import { BadRequestException } from '@nestjs/common';
 import type { CreateRostroDto } from './dto/create-rostro.dto';
 
+/** Valores fijos enviados a BehaviorIQ (no expuestos en el body público del BFF). */
+const DEFAULT_BEHAVIORIQ_ID_CLIENTE = 2;
+const DEFAULT_BEHAVIORIQ_ID_SOLUCION = 2;
+
 /**
  * Convierte el DTO de ShiftControl al JSON que espera BehaviorIQ `POST /rostros`.
  */
@@ -20,8 +24,8 @@ export function toBehaviorIqCrearRostroBody(
   }
 
   const body: Record<string, unknown> = {
-    idCliente: dto.idCliente,
-    idSolucion: dto.idSolucion,
+    idCliente: DEFAULT_BEHAVIORIQ_ID_CLIENTE,
+    idSolucion: DEFAULT_BEHAVIORIQ_ID_SOLUCION,
     nombre: dto.nombre,
     paterno: dto.paterno,
     materno: dto.materno,

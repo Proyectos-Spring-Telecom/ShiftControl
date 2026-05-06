@@ -1,8 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
 import {
   IsArray,
-  IsInt,
   IsNumber,
   IsOptional,
   IsString,
@@ -12,22 +10,6 @@ import {
 } from 'class-validator';
 
 export class CreateRostroDto {
-  @ApiProperty({
-    example: 10,
-    description: 'Cliente en BehaviorIQ. Debe alinear con el JWT de BehaviorIQ si el usuario no es root.',
-  })
-  @Type(() => Number)
-  @IsInt()
-  idCliente: number;
-
-  @ApiProperty({
-    example: 3,
-    description: 'Solución en BehaviorIQ. Debe alinear con el JWT si el usuario no es root.',
-  })
-  @Type(() => Number)
-  @IsInt()
-  idSolucion: number;
-
   @ApiProperty({ example: 'Juan', description: 'Nombre de pila' })
   @IsString()
   @MaxLength(120)

@@ -17,6 +17,7 @@ import { VehiculosModule } from './vehiculos/vehiculos.module';
 import { TurnosModule } from './turnos/turnos.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { EmbedModule } from './embed/embed.module';
+import { PlacasModule } from './placas/placas.module';
 import Joi from 'joi';
 
 @Module({
@@ -129,6 +130,8 @@ import Joi from 'joi';
     ReportesModule,
 
     EmbedModule,
+
+    PlacasModule,
   ],
   providers: [
     {

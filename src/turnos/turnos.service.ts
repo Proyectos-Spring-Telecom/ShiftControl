@@ -306,6 +306,20 @@ export class TurnosService {
         throw new BadRequestException('OCR no devolvió un número de placa válido');
       }
 
+      const validacionBi = await this.behaviorIqPlate.validarPlaca(
+        {
+          numeroPlaca: ocr.plate_number.trim(),
+          latitud: dto.latitud,
+          longitud: dto.longitud,
+        },
+        token,
+      );
+      if (!validacionBi.registered) {
+        throw new BadRequestException(
+          `La placa "${ocr.plate_number.trim()}" no está registrada en BehaviorIQ`,
+        );
+      }
+
       const vehiculo = await this.vehiculosRepository
         .createQueryBuilder('v')
         .where(`REPLACE(REPLACE(UPPER(TRIM(v.placas)), '-', ''), ' ', '') = :norm`, {

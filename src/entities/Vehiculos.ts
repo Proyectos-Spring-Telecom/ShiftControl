@@ -30,4 +30,7 @@ export class Vehiculos {
     default: () => 'CURRENT_TIMESTAMP',
   })
   fechaActualizacion: Date;
+
+  @Column('bigint', { name: 'IdVehiculoAuth', nullable: true })
+  idVehiculoAuth: number | null;
 }

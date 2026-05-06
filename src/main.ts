@@ -57,6 +57,14 @@ async function bootstrap() {
       'Rostros (BehaviorIQ)',
       'Afiliación de rostro — paso 3: alta con `embeddings` o `embeddingsList` (`POST /rostros`). JWT ShiftControl + login BehaviorIQ con `BEHAVIORIQ_*` en servidor. Guía: docs/EMBED_BFF_SHIFTCONTROL.md.',
     )
+    .addTag(
+      'Placa (proxy) (BehaviorIQ)',
+      'Afiliación de placa — OCR (`POST /plate/read`). Requiere JWT ShiftControl; hacia BehaviorIQ el servidor usa `BEHAVIORIQ_*` (login .env).',
+    )
+    .addTag(
+      'Placas (BehaviorIQ)',
+      'Afiliación de placa — alta (`POST /placas`). Requiere JWT ShiftControl; hacia BehaviorIQ el servidor usa `BEHAVIORIQ_*` (login .env).',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

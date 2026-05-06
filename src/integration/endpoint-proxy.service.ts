@@ -66,6 +66,41 @@ export class EndpointProxyService {
     return this.forward('get', path, undefined, req);
   }
 
+  /**
+   * POST hacia Next (`ENDPOINT_URL` → sufijo `/api/`), misma base que `forwardPost('login', ...)`.
+   * Para llamadas sin `Request` de Express pero con el header Authorization del cliente.
+   */
+  async forwardPostWithAuthorization(
+    path: string,
+    body: unknown,
+    authorization: string,
+  ): Promise<{ status: number; data: unknown }> {
+    const url = path.replace(/^\/+/, '');
+    const headers: Record<string, string> = {
+      Accept: '*/*',
+      'Content-Type': 'application/json',
+      Authorization: authorization.trim(),
+    };
+    try {
+      const res = await this.client.request({
+        method: 'post',
+        url,
+        data: body,
+        headers,
+      });
+      return { status: res.status, data: res.data };
+    } catch (err) {
+      if (axios.isAxiosError(err)) {
+        this.logAxiosError('post', url, err);
+      } else {
+        this.logger.warn(`Error al llamar upstream post ${url}: ${err}`);
+      }
+      throw new InternalServerErrorException(
+        'No se pudo contactar el servicio remoto (upstream).',
+      );
+    }
+  }
+
   private async forward(
     method: 'get' | 'post' | 'patch',
     path: string,
