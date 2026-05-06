@@ -9,6 +9,8 @@
  * @see docs/PROCESO_BEHAVIORIQ.MD
  */
 import { Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Usuarios } from 'src/entities/Usuarios';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { BehaviorIqEmbedService } from 'src/integration/behavioriq/behavioriq-embed.service';
 import {
@@ -17,7 +19,7 @@ import {
 } from './behavioriq-face-affiliation.controllers';
 
 @Module({
-  imports: [EndpointProxyModule],
+  imports: [EndpointProxyModule, TypeOrmModule.forFeature([Usuarios])],
   controllers: [EmbedBehaviorIqController, RostrosBehaviorIqController],
   providers: [BehaviorIqEmbedService],
 })
