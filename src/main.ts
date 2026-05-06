@@ -6,7 +6,7 @@ import { HttpStringResponseFilter } from './utils/http-string-response.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
   // Prefijo global: todas las rutas bajo /api (auth, mesas, clientes, etc.)
   app.setGlobalPrefix('api');
 
@@ -49,10 +49,18 @@ async function bootstrap() {
     .addTag('Cat Vista Vehiculo', 'Catálogo vista del vehículo')
     .addTag('Vehiculos', 'Consulta y sombra de vehículos (proxy Next)')
     .addTag('Reportes PDF', 'Reportes PDF e HTML de turnos y vehículos (Puppeteer)')
+    .addTag(
+      'Embed (BehaviorIQ)',
+      'Afiliación de rostro — pasos 1 y 2: validar pose (`POST /embed/validate-pose`) e imagen a embedding 512D (`POST /embed`). Requiere JWT ShiftControl; hacia BehaviorIQ el servidor usa `BEHAVIORIQ_*` (login .env), como OCR placa en turnos. Guía: docs/EMBED_BFF_SHIFTCONTROL.md.',
+    )
+    .addTag(
+      'Rostros (BehaviorIQ)',
+      'Afiliación de rostro — paso 3: alta con `embeddings` o `embeddingsList` (`POST /rostros`). JWT ShiftControl + login BehaviorIQ con `BEHAVIORIQ_*` en servidor. Guía: docs/EMBED_BFF_SHIFTCONTROL.md.',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document, {
+  SwaggerModule.setup('docs', app, document, {
     swaggerOptions: {
       persistAuthorization: true,
       defaultModelsExpandDepth: -1,
