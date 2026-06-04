@@ -36,6 +36,10 @@ async function bootstrap() {
       'bearer-token',
     )
     .addTag('Autenticación', 'Endpoints de autenticación y registro')
+    .addTag(
+      'Usuarios',
+      'Perfil y contraseña del usuario autenticado (proxy Next)',
+    )
     .addTag('Bitácora', 'Registro de actividades del sistema')
     .addTag('Clientes', 'Gestión de clientes')
     .addTag('Modulos', 'Gestión de módulos del sistema')

@@ -12,17 +12,31 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiBadRequestResponse,
+  ApiBody,
+  ApiForbiddenResponse,
+  ApiInternalServerErrorResponse,
+  ApiNotFoundResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiTags,
+  ApiUnauthorizedResponse,
+} from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
 import { LoginAuthDto } from './dto/login-auth.dto';
 import { LoginAuthPinDto } from './dto/login-pin.dto';
 import { LoginAuthConfirmacionDto } from './dto/login-confirmacion.dto';
-import { LoginAuthResetDto } from './dto/login-recuperacion.dto';
+import { UpdateUsuarioContrasenaDto } from './dto/update-usuario-contrasena.dto';
 import { LoginRefreshTokenDto } from './dto/login-refresh-token.dto';
 import { CodigoPasajeroAutenticacion } from './dto/login-autenticacion.dto';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
+import { RolesGuard } from 'src/guard/roles.guard';
+import { Roles } from 'src/common/decorators/roles.decorator';
 import { AuthLoginShadowService } from './auth-login-shadow.service';
 
 const THROTTLE_LOGIN_LIMIT = Number(process.env.THROTTLE_LOGIN_LIMIT ?? 5);
@@ -193,23 +207,64 @@ export class AuthController {
     return r.data;
   }
 
-  @Post('cambiar/accesso')
+  @Patch('cambiar/accesso')
+  @HttpCode(HttpStatus.OK)
+  @ApiTags('Usuarios')
   @ApiBearerAuth('bearer-token')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles()
+  @ApiOperation({
+    summary: 'Cambiar mi contraseña',
+    description:
+      'Proxy BFF hacia Next `PATCH …/api/usuarios/actualizar/contrasena`. ' +
+      'El `userId` se toma del JWT; no enviar id en URL ni body. ' +
+      'Tras un 200 exitoso, Next revoca el access y refresh token actuales: el cliente debe volver a hacer login.',
+  })
+  @ApiBody({ type: UpdateUsuarioContrasenaDto })
+  @ApiOkResponse({
+    description: 'Contraseña actualizada',
+    schema: {
+      example: {
+        status: 'success',
+        message: 'La contraseña ha sido actualizada correctamente.',
+        data: { id: 123, nombre: 'Osmar Martinez' },
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Sin token, token inválido o expirado',
+  })
+  @ApiNotFoundResponse({
+    description: 'Usuario del token no existe en Next',
+  })
+  @ApiBadRequestResponse({
+    description:
+      'Contraseña actual incorrecta, confirmación distinta o validación DTO',
+  })
+  @ApiForbiddenResponse({ description: 'Usuario sin rol asignado' })
+  @ApiInternalServerErrorResponse({
+    description: 'Error al actualizar la contraseña o fallo de conexión con Next',
+  })
   async cambiarAccesso(
-    @Body() dto: LoginAuthResetDto,
+    @Body() dto: UpdateUsuarioContrasenaDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
     this.logger.log(
-      `Proxy → POST login/cambiar/accesso userId=${this.jwtUserId(req) ?? 'n/a'}`,
+      `Proxy → PATCH usuarios/actualizar/contrasena userId=${this.jwtUserId(req) ?? 'n/a'}`,
     );
-    const r = await this.endpointProxy.forwardPost(
-      'login/cambiar/accesso',
-      dto,
+    const r = await this.endpointProxy.forwardPatch(
+      'usuarios/actualizar/contrasena',
+      {
+        passwordActual: dto.passwordActual,
+        passwordNueva: dto.passwordNueva,
+        passwordNuevaConfirmacion: dto.passwordNuevaConfirmacion,
+      },
       req,
     );
-    this.logger.log(`Proxy ← POST login/cambiar/accesso status=${r.status}`);
+    this.logger.log(
+      `Proxy ← PATCH usuarios/actualizar/contrasena status=${r.status}`,
+    );
     res.status(r.status);
     return r.data;
   }
