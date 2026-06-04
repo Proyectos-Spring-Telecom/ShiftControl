@@ -41,6 +41,7 @@ import { RegistrarLucesBitacoraDto } from './dto/registrar-luces-bitacora.dto';
 import { RegistrarDocumentacionBitacoraDto } from './dto/registrar-documentacion-bitacora.dto';
 import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitacora.dto';
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
+import { MiTurnoActivoResponseDto } from './dto/mi-turno-activo.response';
 import { turnoFindOneOkExample } from './examples/turno-find-one-ok.example';
 import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
@@ -1092,6 +1093,21 @@ export class TurnosController {
     const idCliente = req.user.idCliente;
     const idUser = req.user.userId;
     return this.turnosService.updateEstatus(idTurno, idCliente, idUser);
+  }
+
+  @Get('mi-turno')
+  @ApiOperation({
+    summary: 'Mi turno activo',
+    description:
+      'Consulta el turno en curso del usuario autenticado (`IdUsuario` del JWT). ' +
+      'Criterio: fila en `Turnos` con estatus activo y catálogo EN_CURSO. ' +
+      'Devuelve si hay turno activo, datos del vehículo, fecha de inicio y duración en segundos desde la apertura.',
+  })
+  @ApiOkResponse({ type: MiTurnoActivoResponseDto })
+  async findMiTurnoActivo(@Request() req): Promise<MiTurnoActivoResponseDto> {
+    const idUsuario = Number(req.user.userId);
+    const idCliente = Number(req.user.idCliente);
+    return this.turnosService.findMiTurnoActivo(idUsuario, idCliente);
   }
 
   @Get('list')

@@ -35,6 +35,7 @@ import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import { CrearIncidenciaAccidenteDto } from './dto/crear-incidencia-accidente.dto';
 import { CrearIncidenciaGasolinaDto } from './dto/crear-incidencia-gasolina.dto';
+import { MiTurnoActivoResponseDto } from './dto/mi-turno-activo.response';
 import {
   EnumEstatusTurno,
   EstatusEnum,
@@ -1750,6 +1751,59 @@ export class TurnosService {
         `Error al cancelar el turno con id: ${idTurno}`,
       );
     }
+  }
+
+  /**
+   * Turno en curso del operador (IdUsuario del JWT): estatus activo + catálogo EN_CURSO.
+   */
+  async findMiTurnoActivo(
+    idUsuario: number,
+    idCliente: number,
+  ): Promise<MiTurnoActivoResponseDto> {
+    const vacio: MiTurnoActivoResponseDto = {
+      turnoActivo: false,
+      idTurno: null,
+      fechaInicio: null,
+      duracionSegundos: null,
+      vehiculo: null,
+    };
+
+    const turno = await this.repository.findOne({
+      where: {
+        idUsuario,
+        idCliente,
+        estatus: EstatusEnum.ACTIVO,
+        idEstatusTurno: EnumEstatusTurno.EN_CURSO,
+      },
+      relations: ['vehiculo'],
+      order: { fechaApertura: 'DESC' },
+    });
+
+    if (!turno?.fechaApertura) {
+      return vacio;
+    }
+
+    const inicioMs = new Date(turno.fechaApertura).getTime();
+    const duracionSegundos = Math.max(
+      0,
+      Math.floor((Date.now() - inicioMs) / 1000),
+    );
+    const v = turno.vehiculo;
+
+    return {
+      turnoActivo: true,
+      idTurno: Number(turno.id),
+      fechaInicio: new Date(turno.fechaApertura).toISOString(),
+      duracionSegundos,
+      vehiculo: v
+        ? {
+            id: Number(v.id),
+            placas: v.placas,
+            fotoFrente: v.fotoFrente ?? null,
+            idCliente: Number(v.idCliente),
+          }
+        : null,
+    };
   }
 
   async remove(id: number, idCliente: number, idUser: number): Promise<ApiCrudResponse> {
