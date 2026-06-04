@@ -1759,6 +1759,7 @@ export class TurnosService {
   async findMiTurnoActivo(
     idUsuario: number,
     idCliente: number,
+    req: Request,
   ): Promise<MiTurnoActivoResponseDto> {
     const vacio: MiTurnoActivoResponseDto = {
       turnoActivo: false,
@@ -1789,6 +1790,18 @@ export class TurnosService {
       Math.floor((Date.now() - inicioMs) / 1000),
     );
     const v = turno.vehiculo;
+    let detalleNext: Record<string, unknown> | null = null;
+
+    const placa = v?.placas?.trim();
+    if (placa) {
+      const proxy = await this.vehiculosService.findOneByPlaca(placa, req);
+      if (proxy.status >= 200 && proxy.status < 300) {
+        const payload = proxy.data as { data?: unknown };
+        if (payload?.data && typeof payload.data === 'object') {
+          detalleNext = payload.data as Record<string, unknown>;
+        }
+      }
+    }
 
     return {
       turnoActivo: true,
@@ -1801,6 +1814,7 @@ export class TurnosService {
             placas: v.placas,
             fotoFrente: v.fotoFrente ?? null,
             idCliente: Number(v.idCliente),
+            detalle: detalleNext,
           }
         : null,
     };

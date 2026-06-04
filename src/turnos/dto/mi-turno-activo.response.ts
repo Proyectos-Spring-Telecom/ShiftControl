@@ -12,6 +12,21 @@ export class MiTurnoActivoVehiculoDto {
 
   @ApiProperty({ example: 11 })
   idCliente: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Datos enriquecidos desde Next (`GET /vehiculos/placa/:placa`): marca, modelo, tipo, combustible, cliente, etc.',
+    nullable: true,
+    example: {
+      id: 42,
+      placa: 'NU-7653-B',
+      marca: 'Nissan',
+      modelo: 'NP300',
+      tipoVehiculo: 'Pick up',
+      combustible: 'Gasolina',
+    },
+  })
+  detalle: Record<string, unknown> | null;
 }
 
 /** Respuesta de GET /api/turnos/mi-turno (turno en curso del usuario autenticado). */
