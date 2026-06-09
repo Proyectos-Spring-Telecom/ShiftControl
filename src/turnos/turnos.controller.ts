@@ -47,6 +47,7 @@ import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
+import { EnumRolUsuario } from 'src/common/roles.enum';
 
 const TURNOS_CREATE_UPLOAD = {
   storage: multer.memoryStorage(),
@@ -117,7 +118,7 @@ export class TurnosController {
   constructor(private readonly turnosService: TurnosService) {}
 
   @Post()
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Crear turno (abrir turno)',
@@ -277,7 +278,7 @@ export class TurnosController {
   }
 
   @Post('incidencias/accidente')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -338,7 +339,7 @@ export class TurnosController {
   }
 
   @Post('incidencias/gasolina')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @HttpCode(HttpStatus.CREATED)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
@@ -417,7 +418,7 @@ export class TurnosController {
   }
 
   @Post('tablero')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Registrar lectura de tablero (bitácora en turno en curso)',
@@ -491,7 +492,7 @@ export class TurnosController {
   }
 
   @Post('testigos')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Registrar testigos del vehículo (bitácora en turno en curso)',
     description:
@@ -542,7 +543,7 @@ export class TurnosController {
   }
 
   @Post('niveles-fluidos')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Registrar niveles de fluidos (bitácora en turno en curso)',
     description:
@@ -596,7 +597,7 @@ export class TurnosController {
   }
 
   @Post('luces-vehiculo')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Registrar luces del vehículo (bitácora en turno en curso)',
     description:
@@ -650,7 +651,7 @@ export class TurnosController {
   }
 
   @Post('documentacion-vehiculo')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Registrar documentación del vehículo (bitácora en turno en curso)',
     description:
@@ -704,7 +705,7 @@ export class TurnosController {
   }
 
   @Post('accesorios-vehiculo')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Registrar accesorios del vehículo (bitácora en turno en curso)',
     description:
@@ -758,7 +759,7 @@ export class TurnosController {
   }
 
   @Post('inspeccion-vehiculo-ex')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Registrar inspección exterior de daños (bitácora en turno en curso)',
@@ -848,7 +849,7 @@ export class TurnosController {
   }
 
   @Patch('bitacora/cierre')
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiOperation({
     summary: 'Cierre de bitácora (apertura o cierre según estado del turno)',
     description:
@@ -1034,7 +1035,7 @@ export class TurnosController {
   }
 
   @Patch()
-  @Roles(6)
+  @Roles(EnumRolUsuario.OPERADOR)
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Cerrar turno con geolocalización y evidencia',

@@ -51,7 +51,7 @@ export const turnoFindOneOkExample = {
     usuario: {
       id: 4,
       idCliente: 11,
-      idRol: 6,
+      idRol: 7,
       idSolucion: 2,
       idClienteGeneral: 2,
       idFaceAuth: null,
