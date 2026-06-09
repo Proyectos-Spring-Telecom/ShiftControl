@@ -83,6 +83,11 @@ export class BehaviorIqPlateService {
           'behaviorIQ: servicio de placa no disponible',
         );
       }
+      if (status === 404) {
+        throw new BadRequestException(
+          'No fue posible asociar el vehículo al turno. La placa no está registrada en el sistema o no pudo identificarse correctamente en la imagen. Verifique que la unidad esté dada de alta e intente nuevamente con una fotografía clara de la placa.',
+        );
+      }
       if (status !== 200 && status !== 201) {
         this.logger.warn(
           `behaviorIQ plate/read HTTP ${status}: ${JSON.stringify(data)}`,

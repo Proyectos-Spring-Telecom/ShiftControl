@@ -256,7 +256,7 @@ export class TurnosController {
   @ApiResponse({
     status: 400,
     description:
-      'Sin imagen, OCR bajo umbral, placa no en sombra, sin evidencia o turno activo',
+      'Sin imagen, OCR bajo umbral, placa no registrada o no identificada (BehaviorIQ), placa no en sombra, sin evidencia o turno activo',
   })
   @UseInterceptors(FileInterceptor('evidenciaApertura', TURNOS_CREATE_UPLOAD))
   async create(
