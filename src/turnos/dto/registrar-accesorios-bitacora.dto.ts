@@ -25,6 +25,11 @@ export class RegistrarAccesoriosBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(accEnum)
+  aguas?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(accEnum)
   extintor?: EstatusEnum;
 
   @IsOptional()
@@ -45,15 +50,15 @@ export class RegistrarAccesoriosBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(accEnum)
+  herramienta?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(accEnum)
   refaccion?: EstatusEnum;
 
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(accEnum)
-  gato?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(accEnum)
-  birloSeguridad?: EstatusEnum;
+  impermeable?: EstatusEnum;
 }

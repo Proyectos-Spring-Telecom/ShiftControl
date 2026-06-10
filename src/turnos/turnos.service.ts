@@ -99,10 +99,12 @@ function valoresLucesDefinidos(dto: RegistrarLucesBitacoraDto): EstatusEnum[] {
     'altas',
     'cortas',
     'intermitentesDelanteras',
-    'intermitentesTraseras',
     'direccionalesDelanteras',
-    'direccionalesTraseras',
     'intermitentesLaterales',
+    'intermitentesTraseras',
+    'direccionalesTraseras',
+    'reversa',
+    'freno',
   ] as const;
   const out: EstatusEnum[] = [];
   for (const k of keys) {
@@ -118,12 +120,11 @@ function valoresDocumentacionDefinidos(
   dto: RegistrarDocumentacionBitacoraDto,
 ): EstatusEnum[] {
   const keys = [
+    'bitacoraVehicular',
+    'certificadoEcologico',
+    'polizaSeguro',
     'tarjetaCirculacion',
     'verificacion',
-    'polizaSeguro',
-    'tenencia',
-    'certificadoEcologico',
-    'manual',
     'permisoCarga',
     'cartaPorte',
   ] as const;
@@ -140,13 +141,14 @@ function valoresDocumentacionDefinidos(
 function valoresAccesoriosDefinidos(dto: RegistrarAccesoriosBitacoraDto): EstatusEnum[] {
   const keys = [
     'limpiaparabrisas',
+    'aguas',
     'extintor',
     'tringulosSeguridad',
     'stereo',
     'tapetes',
+    'herramienta',
     'refaccion',
-    'gato',
-    'birloSeguridad',
+    'impermeable',
   ] as const;
   const out: EstatusEnum[] = [];
   for (const k of keys) {
@@ -986,10 +988,12 @@ export class TurnosService {
           altas: dto.altas ?? null,
           cortas: dto.cortas ?? null,
           intermitentesDelanteras: dto.intermitentesDelanteras ?? null,
-          intermitentesTraseras: dto.intermitentesTraseras ?? null,
           direccionalesDelanteras: dto.direccionalesDelanteras ?? null,
-          direccionalesTraseras: dto.direccionalesTraseras ?? null,
           intermitentesLaterales: dto.intermitentesLaterales ?? null,
+          intermitentesTraseras: dto.intermitentesTraseras ?? null,
+          direccionalesTraseras: dto.direccionalesTraseras ?? null,
+          reversa: dto.reversa ?? null,
+          freno: dto.freno ?? null,
         });
         const saved = await lucesRepo.save(luces);
         await bvRepo.update(bitacora.id, { idLucesVehiculo: saved.id });
@@ -1060,12 +1064,11 @@ export class TurnosService {
           idTurno: bitacora.idTurno,
           idVehiculo: bitacora.idVehiculo,
           estatus: estatusFila,
+          bitacoraVehicular: dto.bitacoraVehicular ?? null,
+          certificadoEcologico: dto.certificadoEcologico ?? null,
+          polizaSeguro: dto.polizaSeguro ?? null,
           tarjetaCirculacion: dto.tarjetaCirculacion ?? null,
           verificacion: dto.verificacion ?? null,
-          polizaSeguro: dto.polizaSeguro ?? null,
-          tenencia: dto.tenencia ?? null,
-          certificadoEcologico: dto.certificadoEcologico ?? null,
-          manual: dto.manual ?? null,
           permisoCarga: dto.permisoCarga ?? null,
           cartaPorte: dto.cartaPorte ?? null,
         });
@@ -1139,13 +1142,14 @@ export class TurnosService {
           idVehiculo: bitacora.idVehiculo,
           estatus: estatusFila,
           limpiaparabrisas: dto.limpiaparabrisas ?? null,
+          aguas: dto.aguas ?? null,
           extintor: dto.extintor ?? null,
           tringulosSeguridad: dto.tringulosSeguridad ?? null,
           stereo: dto.stereo ?? null,
           tapetes: dto.tapetes ?? null,
+          herramienta: dto.herramienta ?? null,
           refaccion: dto.refaccion ?? null,
-          gato: dto.gato ?? null,
-          birloSeguridad: dto.birloSeguridad ?? null,
+          impermeable: dto.impermeable ?? null,
         });
         const saved = await accRepo.save(acc);
         await bvRepo.update(bitacora.id, { idAccesoriosVehiculo: saved.id });

@@ -35,12 +35,17 @@ export class RegistrarLucesBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(luzEnum)
-  intermitentesTraseras?: EstatusEnum;
+  direccionalesDelanteras?: EstatusEnum;
 
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(luzEnum)
-  direccionalesDelanteras?: EstatusEnum;
+  intermitentesLaterales?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(luzEnum)
+  intermitentesTraseras?: EstatusEnum;
 
   @IsOptional()
   @IsEnum(EstatusEnum)
@@ -50,5 +55,10 @@ export class RegistrarLucesBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(luzEnum)
-  intermitentesLaterales?: EstatusEnum;
+  reversa?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(luzEnum)
+  freno?: EstatusEnum;
 }

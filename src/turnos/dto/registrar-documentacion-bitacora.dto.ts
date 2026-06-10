@@ -20,22 +20,7 @@ export class RegistrarDocumentacionBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(docEnum)
-  tarjetaCirculacion?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(docEnum)
-  verificacion?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(docEnum)
-  polizaSeguro?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(docEnum)
-  tenencia?: EstatusEnum;
+  bitacoraVehicular?: EstatusEnum;
 
   @IsOptional()
   @IsEnum(EstatusEnum)
@@ -45,7 +30,17 @@ export class RegistrarDocumentacionBitacoraDto {
   @IsOptional()
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(docEnum)
-  manual?: EstatusEnum;
+  polizaSeguro?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(docEnum)
+  tarjetaCirculacion?: EstatusEnum;
+
+  @IsOptional()
+  @IsEnum(EstatusEnum)
+  @ApiPropertyOptional(docEnum)
+  verificacion?: EstatusEnum;
 
   @IsOptional()
   @IsEnum(EstatusEnum)

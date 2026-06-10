@@ -30,17 +30,23 @@ export class LucesVehiculo {
   @Column('tinyint', { name: 'IntermitentesDelanteras', nullable: true })
   intermitentesDelanteras: number | null;
 
-  @Column('tinyint', { name: 'IntermitentesTraseras', nullable: true })
-  intermitentesTraseras: number | null;
-
   @Column('tinyint', { name: 'DireccionalesDelanteras', nullable: true })
   direccionalesDelanteras: number | null;
+
+  @Column('tinyint', { name: 'IntermitentesLaterales', nullable: true })
+  intermitentesLaterales: number | null;
+
+  @Column('tinyint', { name: 'IntermitentesTraseras', nullable: true })
+  intermitentesTraseras: number | null;
 
   @Column('tinyint', { name: 'DireccionalesTraseras', nullable: true })
   direccionalesTraseras: number | null;
 
-  @Column('tinyint', { name: 'IntermitentesLaterales', nullable: true })
-  intermitentesLaterales: number | null;
+  @Column('tinyint', { name: 'Reversa', nullable: true })
+  reversa: number | null;
+
+  @Column('tinyint', { name: 'Freno', nullable: true })
+  freno: number | null;
 
   @Column('tinyint', { name: 'Estatus', default: 1 })
   estatus: number;

@@ -24,6 +24,9 @@ export class AccesoriosVehiculo {
   @Column('tinyint', { name: 'Limpiaparabrisas', nullable: true })
   limpiaparabrisas: number | null;
 
+  @Column('tinyint', { name: 'Aguas', nullable: true })
+  aguas: number | null;
+
   @Column('tinyint', { name: 'Extintor', nullable: true })
   extintor: number | null;
 
@@ -36,14 +39,14 @@ export class AccesoriosVehiculo {
   @Column('tinyint', { name: 'Tapetes', nullable: true })
   tapetes: number | null;
 
+  @Column('tinyint', { name: 'Herramienta', nullable: true })
+  herramienta: number | null;
+
   @Column('tinyint', { name: 'Refaccion', nullable: true })
   refaccion: number | null;
 
-  @Column('tinyint', { name: 'Gato', nullable: true })
-  gato: number | null;
-
-  @Column('tinyint', { name: 'BirloSeguridad', nullable: true })
-  birloSeguridad: number | null;
+  @Column('tinyint', { name: 'Impermeable', nullable: true })
+  impermeable: number | null;
 
   @Column('tinyint', { name: 'Estatus', default: 0 })
   estatus: number;

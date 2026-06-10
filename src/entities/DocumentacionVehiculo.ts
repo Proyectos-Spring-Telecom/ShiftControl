@@ -21,23 +21,20 @@ export class DocumentacionVehiculo {
   @Column('bigint', { name: 'IdVehiculo' })
   idVehiculo: number;
 
+  @Column('tinyint', { name: 'BitacoraVehicular', nullable: true })
+  bitacoraVehicular: number | null;
+
+  @Column('tinyint', { name: 'CertificadoEcologico', nullable: true })
+  certificadoEcologico: number | null;
+
+  @Column('tinyint', { name: 'PolizaSeguro', nullable: true })
+  polizaSeguro: number | null;
+
   @Column('tinyint', { name: 'TarjetaCirculacion', nullable: true })
   tarjetaCirculacion: number | null;
 
   @Column('tinyint', { name: 'Verificacion', nullable: true })
   verificacion: number | null;
-
-  @Column('tinyint', { name: 'PolizaSeguro', nullable: true })
-  polizaSeguro: number | null;
-
-  @Column('tinyint', { name: 'Tenencia', nullable: true })
-  tenencia: number | null;
-
-  @Column('tinyint', { name: 'CertificadoEcologico', nullable: true })
-  certificadoEcologico: number | null;
-
-  @Column('tinyint', { name: 'Manual', nullable: true })
-  manual: number | null;
 
   @Column('tinyint', { name: 'PermisoCarga', nullable: true })
   permisoCarga: number | null;
