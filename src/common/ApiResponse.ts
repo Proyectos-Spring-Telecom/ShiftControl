@@ -48,6 +48,11 @@ export interface ApiData {
   vehiculoPorPlaca?: { status: number; data: unknown };
   /** Subflujo de cierre de bitácora: apertura | cierre */
   flujo?: string;
+  idVistaVehiculo?: number;
+  vistaVehiculo?: { id: number; nombre: string } | null;
+  estatus?: number;
+  fechaCreacion?: Date;
+  fechaActualizacion?: Date;
 }
 
 export interface ApiEstatus {

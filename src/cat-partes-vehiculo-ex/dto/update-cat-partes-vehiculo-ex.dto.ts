@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class UpdateCatPartesVehiculoExDto {
   @IsString()
@@ -10,4 +11,13 @@ export class UpdateCatPartesVehiculoExDto {
     example: 'Capó',
   })
   nombre: string;
+
+  @Type(() => Number)
+  @IsInt()
+  @IsNotEmpty()
+  @ApiProperty({
+    description: 'Id de CatVistaVehiculo (vista exterior asociada)',
+    example: 2,
+  })
+  idVistaVehiculo: number;
 }

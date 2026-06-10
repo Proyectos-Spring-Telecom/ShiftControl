@@ -9,6 +9,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CatPartesVehiculoEx } from 'src/entities/CatPartesVehiculoEx';
+import { CatVistaVehiculo } from 'src/entities/CatVistaVehiculo';
 import { BitacoraLoggerService } from 'src/bitacora/bitacora.service';
 import {
   ApiCrudResponse,
@@ -27,8 +28,37 @@ export class CatPartesVehiculoExService {
   constructor(
     @InjectRepository(CatPartesVehiculoEx)
     private readonly repo: Repository<CatPartesVehiculoEx>,
+    @InjectRepository(CatVistaVehiculo)
+    private readonly vistaVehiculoRepo: Repository<CatVistaVehiculo>,
     private readonly bitacoraLogger: BitacoraLoggerService,
   ) {}
+
+  private mapRow(item: CatPartesVehiculoEx) {
+    const vista = item.vistaVehiculo;
+    return {
+      id: Number(item.id),
+      nombre: item.nombre,
+      estatus: item.estatus,
+      fechaCreacion: item.fechaCreacion,
+      fechaActualizacion: item.fechaActualizacion,
+      idVistaVehiculo: Number(item.idVistaVehiculo),
+      vistaVehiculo: vista
+        ? { id: Number(vista.id), nombre: vista.nombre }
+        : null,
+    };
+  }
+
+  private async resolveIdVistaVehiculo(idVistaVehiculo: number): Promise<number> {
+    const vista = await this.vistaVehiculoRepo.findOne({
+      where: { id: idVistaVehiculo, estatus: 1 },
+    });
+    if (!vista) {
+      throw new BadRequestException(
+        'La vista del vehículo indicada no existe o está inactiva',
+      );
+    }
+    return idVistaVehiculo;
+  }
 
   async create(
     dto: CreateCatPartesVehiculoExDto,
@@ -41,11 +71,17 @@ export class CatPartesVehiculoExService {
       if (existente) {
         throw new BadRequestException('Ya existe una parte del vehículo con ese nombre');
       }
+      const idVistaVehiculo = await this.resolveIdVistaVehiculo(dto.idVistaVehiculo);
       const row = this.repo.create({
         nombre: dto.nombre,
         estatus: 1,
+        idVistaVehiculo,
       });
       const saved = await this.repo.save(row);
+      const withVista = await this.repo.findOne({
+        where: { id: saved.id },
+        relations: ['vistaVehiculo'],
+      });
 
       const querylogger = { dto };
       await this.bitacoraLogger.logToBitacora(
@@ -61,10 +97,14 @@ export class CatPartesVehiculoExService {
       return {
         status: 'success',
         message: 'Parte del vehículo creada correctamente',
-        data: {
-          id: Number(saved.id),
-          nombre: saved.nombre,
-        },
+        data: withVista
+          ? this.mapRow(withVista)
+          : {
+              id: Number(saved.id),
+              nombre: saved.nombre,
+              idVistaVehiculo,
+              vistaVehiculo: null,
+            },
       };
     } catch (error) {
       const querylogger = { dto };
@@ -86,15 +126,32 @@ export class CatPartesVehiculoExService {
     try {
       const rows = await this.repo.find({
         where: { estatus: 1 },
+        relations: ['vistaVehiculo'],
         order: { id: 'ASC' },
       });
-      const data = rows.map((item) => ({
-        ...item,
-        id: Number(item.id),
-      }));
+      const data = rows.map((item) => this.mapRow(item));
       return { data };
     } catch (error) {
       throw new BadRequestException(error);
+    }
+  }
+
+  async findActiveByIdVistaVehiculo(
+    idVistaVehiculo: number,
+  ): Promise<ApiResponseCommon> {
+    try {
+      const rows = await this.repo.find({
+        where: { idVistaVehiculo, estatus: 1 },
+        relations: ['vistaVehiculo'],
+        order: { id: 'ASC' },
+      });
+      const data = rows.map((item) => this.mapRow(item));
+      return { data };
+    } catch (error) {
+      throw new BadRequestException(
+        (error as Error).message ||
+          'Error al obtener partes del vehículo por vista',
+      );
     }
   }
 
@@ -103,12 +160,10 @@ export class CatPartesVehiculoExService {
       const [rows, total] = await this.repo.findAndCount({
         skip: (page - 1) * limit,
         take: limit,
+        relations: ['vistaVehiculo'],
         order: { id: 'ASC' },
       });
-      const data = rows.map((item) => ({
-        ...item,
-        id: Number(item.id),
-      }));
+      const data = rows.map((item) => this.mapRow(item));
       return {
         data,
         paginated: {
@@ -126,15 +181,15 @@ export class CatPartesVehiculoExService {
 
   async findOne(id: number) {
     try {
-      const row = await this.repo.findOne({ where: { id } });
+      const row = await this.repo.findOne({
+        where: { id },
+        relations: ['vistaVehiculo'],
+      });
       if (!row) {
         throw new NotFoundException({ message: 'Parte del vehículo no encontrada' });
       }
       return {
-        data: {
-          ...row,
-          id: Number(row.id),
-        },
+        data: this.mapRow(row),
       };
     } catch (error) {
       if (error instanceof HttpException) throw error;
@@ -157,8 +212,19 @@ export class CatPartesVehiculoExService {
     try {
       const row = await this.repo.findOne({ where: { id } });
       if (!row) throw new NotFoundException('Parte del vehículo no encontrada');
-      await this.repo.update(id, { nombre: dto.nombre });
-      const updated = await this.repo.findOne({ where: { id } });
+
+      const idVistaVehiculo = await this.resolveIdVistaVehiculo(
+        dto.idVistaVehiculo,
+      );
+
+      await this.repo.update(id, {
+        nombre: dto.nombre,
+        idVistaVehiculo,
+      });
+      const updated = await this.repo.findOne({
+        where: { id },
+        relations: ['vistaVehiculo'],
+      });
 
       const querylogger = { dto };
       await this.bitacoraLogger.logToBitacora(
@@ -174,10 +240,14 @@ export class CatPartesVehiculoExService {
       return {
         status: 'success',
         message: 'Parte del vehículo actualizada correctamente',
-        data: {
-          id,
-          nombre: updated?.nombre ?? dto.nombre,
-        },
+        data: updated
+          ? this.mapRow(updated)
+          : {
+              id,
+              nombre: dto.nombre,
+              idVistaVehiculo,
+              vistaVehiculo: null,
+            },
       };
     } catch (error) {
       const querylogger = { dto };

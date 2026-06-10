@@ -66,6 +66,25 @@ export class CatPartesVehiculoExController {
     return this.service.findAllList();
   }
 
+  @Get('vista/:idVistaVehiculo')
+  @ApiOperation({
+    summary: 'Partes activas por vista del vehículo',
+    description:
+      'Lista partes con estatus 1 filtradas por IdVistaVehiculo (CatVistaVehiculo)',
+  })
+  @ApiParam({
+    name: 'idVistaVehiculo',
+    description: 'Id de CatVistaVehiculo',
+    example: 1,
+  })
+  @ApiResponse({ status: 200, description: 'Lista obtenida correctamente' })
+  @ApiResponse({ status: 401, description: 'No autorizado' })
+  findActiveByVista(
+    @Param('idVistaVehiculo', ParseIntPipe) idVistaVehiculo: number,
+  ): Promise<ApiResponseCommon> {
+    return this.service.findActiveByIdVistaVehiculo(idVistaVehiculo);
+  }
+
   @Get(':page/:limit')
   @ApiOperation({
     summary: 'Lista paginada (todos los registros)',
