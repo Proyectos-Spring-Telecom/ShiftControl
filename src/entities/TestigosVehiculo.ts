@@ -37,8 +37,17 @@ export class TestigosVehiculo {
   })
   fechaActualizacion: Date;
 
-  @Column('tinyint', { name: 'TemperaturaMotorAlta', nullable: true })
-  temperaturaMotorAlta: number | null;
+  @Column('tinyint', { name: 'ABS', nullable: true })
+  abs: number | null;
+
+  @Column('tinyint', { name: 'Potencia', nullable: true })
+  potencia: number | null;
+
+  @Column('tinyint', { name: 'CinturonSeguridad', nullable: true })
+  cinturonSeguridad: number | null;
+
+  @Column('tinyint', { name: 'Luces', nullable: true })
+  luces: number | null;
 
   @Column('tinyint', { name: 'PresionAceite', nullable: true })
   presionAceite: number | null;
@@ -46,68 +55,23 @@ export class TestigosVehiculo {
   @Column('tinyint', { name: 'Bateria', nullable: true })
   bateria: number | null;
 
-  @Column('tinyint', { name: 'Airbag', nullable: true })
-  airbag: number | null;
-
   @Column('tinyint', { name: 'CheckEngine', nullable: true })
   checkEngine: number | null;
 
-  @Column('tinyint', { name: 'ABS', nullable: true })
-  abs: number | null;
-
-  @Column('tinyint', { name: 'SistemaFrenos', nullable: true })
-  sistemaFrenos: number | null;
-
-  @Column('tinyint', { name: 'ControlEstabilidad', nullable: true })
-  controlEstabilidad: number | null;
-
-  @Column('tinyint', { name: 'ControlTraccion', nullable: true })
-  controlTraccion: number | null;
-
-  @Column('tinyint', { name: 'NivelCombustible', nullable: true })
-  nivelCombustible: number | null;
-
-  @Column('tinyint', { name: 'FiltroParticulas', nullable: true })
-  filtroParticulas: number | null;
-
-  @Column('tinyint', { name: 'BujiasIncandecentes', nullable: true })
-  bujiasIncandecentes: number | null;
+  @Column('tinyint', { name: 'Airbag', nullable: true })
+  airbag: number | null;
 
   @Column('tinyint', { name: 'PresionNeumatico', nullable: true })
   presionNeumatico: number | null;
 
+  @Column('tinyint', { name: 'SistemaFrenos', nullable: true })
+  sistemaFrenos: number | null;
+
+  @Column('tinyint', { name: 'TemperaturaMotor', nullable: true })
+  temperaturaMotor: number | null;
+
   @Column('tinyint', { name: 'FallaDireccionAsistida', nullable: true })
   fallaDireccionAsistida: number | null;
-
-  @Column('tinyint', { name: 'RefrigeranteMotor', nullable: true })
-  refrigeranteMotor: number | null;
-
-  @Column('tinyint', { name: 'BloqueoDiferencial', nullable: true })
-  bloqueoDiferencial: number | null;
-
-  @Column('tinyint', { name: 'ControlAcelerador', nullable: true })
-  controlAcelerador: number | null;
-
-  @Column('tinyint', { name: 'LlavePresencia', nullable: true })
-  llavePresencia: number | null;
-
-  @Column('tinyint', { name: 'NivelLuiquidoFrenos', nullable: true })
-  nivelLiquidoFrenos: number | null;
-
-  @Column('tinyint', { name: 'Cajuela', nullable: true })
-  cajuela: number | null;
-
-  @Column('tinyint', { name: 'Puerta', nullable: true })
-  puerta: number | null;
-
-  @Column('tinyint', { name: 'CinturonSeguridad', nullable: true })
-  cinturonSeguridad: number | null;
-
-  @Column('tinyint', { name: 'CambioAceite', nullable: true })
-  cambioAceite: number | null;
-
-  @Column('tinyint', { name: 'Servicio', nullable: true })
-  servicio: number | null;
 
   @ManyToOne(() => Turnos, { onDelete: 'RESTRICT', onUpdate: 'CASCADE' })
   @JoinColumn([{ name: 'IdTurno', referencedColumnName: 'id' }])

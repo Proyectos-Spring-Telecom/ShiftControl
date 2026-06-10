@@ -496,7 +496,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar testigos del vehículo (bitácora en turno en curso)',
     description:
-      'JSON: idBitacoraVehiculo e indicadores (EstatusEnum 0/1). idTurno e idVehiculo se toman de la bitácora. Calcula estatus de la fila; enlaza BitacoraVehiculo.IdTestigosVehiculo.',
+      'JSON: idBitacoraVehiculo (requerido) e indicadores opcionales (EstatusEnum 0/1). idTurno e idVehiculo se toman de la bitácora. Calcula estatus de la fila; enlaza BitacoraVehiculo.IdTestigosVehiculo.',
   })
   @ApiBody({ type: RegistrarTestigosBitacoraDto })
   @ApiResponse({

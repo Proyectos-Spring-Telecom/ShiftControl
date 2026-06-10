@@ -20,7 +20,7 @@ import { CreateCatPartesVehiculoExDto } from './dto/create-cat-partes-vehiculo-e
 import { UpdateCatPartesVehiculoExDto } from './dto/update-cat-partes-vehiculo-ex.dto';
 import { UpdateCatPartesVehiculoExEstatusDto } from './dto/update-cat-partes-vehiculo-ex-estatus.dto';
 
-const BITACORA_MODULO_ID = 22;
+const BITACORA_MODULO_ID = 15;
 const BITACORA_TABLA = 'CatPartesVehiculoEx';
 
 @Injectable()
@@ -31,7 +31,7 @@ export class CatPartesVehiculoExService {
     @InjectRepository(CatVistaVehiculo)
     private readonly vistaVehiculoRepo: Repository<CatVistaVehiculo>,
     private readonly bitacoraLogger: BitacoraLoggerService,
-  ) {}
+  ) { }
 
   private mapRow(item: CatPartesVehiculoEx) {
     const vista = item.vistaVehiculo;
@@ -66,7 +66,7 @@ export class CatPartesVehiculoExService {
   ): Promise<ApiCrudResponse> {
     try {
       const existente = await this.repo.findOne({
-        where: { nombre: dto.nombre },
+        where: { nombre: dto.nombre, idVistaVehiculo: dto.idVistaVehiculo },
       });
       if (existente) {
         throw new BadRequestException('Ya existe una parte del vehículo con ese nombre');
@@ -100,11 +100,11 @@ export class CatPartesVehiculoExService {
         data: withVista
           ? this.mapRow(withVista)
           : {
-              id: Number(saved.id),
-              nombre: saved.nombre,
-              idVistaVehiculo,
-              vistaVehiculo: null,
-            },
+            id: Number(saved.id),
+            nombre: saved.nombre,
+            idVistaVehiculo,
+            vistaVehiculo: null,
+          },
       };
     } catch (error) {
       const querylogger = { dto };
@@ -150,7 +150,7 @@ export class CatPartesVehiculoExService {
     } catch (error) {
       throw new BadRequestException(
         (error as Error).message ||
-          'Error al obtener partes del vehículo por vista',
+        'Error al obtener partes del vehículo por vista',
       );
     }
   }
@@ -243,11 +243,11 @@ export class CatPartesVehiculoExService {
         data: updated
           ? this.mapRow(updated)
           : {
-              id,
-              nombre: dto.nombre,
-              idVistaVehiculo,
-              vistaVehiculo: null,
-            },
+            id,
+            nombre: dto.nombre,
+            idVistaVehiculo,
+            vistaVehiculo: null,
+          },
       };
     } catch (error) {
       const querylogger = { dto };

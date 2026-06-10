@@ -1,6 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsEnum, IsNotEmpty, IsNumber, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, Min } from 'class-validator';
 import { EstatusEnum } from 'src/common/estatus.enum';
 
 const indicadorEnum = {
@@ -17,99 +17,63 @@ export class RegistrarTestigosBitacoraDto {
   @ApiProperty({ description: 'Id BitacoraVehiculo', example: 1 })
   idBitacoraVehiculo: number;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  temperaturaMotorAlta: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  abs?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  presionAceite: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  potencia?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  bateria: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  cinturonSeguridad?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  airbag: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  luces?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  checkEngine: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  presionAceite?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  abs: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  bateria?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  sistemaFrenos: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  checkEngine?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  controlEstabilidad: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  airbag?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  controlTraccion: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  presionNeumatico?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  nivelCombustible: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  sistemaFrenos?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  filtroParticulas: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  temperaturaMotor?: EstatusEnum;
 
+  @IsOptional()
   @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  bujiasIncandecentes: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  presionNeumatico: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  fallaDireccionAsistida: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  refrigeranteMotor: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  bloqueoDiferencial: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  controlAcelerador: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  llavePresencia: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  nivelLiquidoFrenos: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  cajuela: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  puerta: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  cinturonSeguridad: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  cambioAceite: EstatusEnum;
-
-  @IsEnum(EstatusEnum)
-  @ApiProperty(indicadorEnum)
-  servicio: EstatusEnum;
+  @ApiPropertyOptional(indicadorEnum)
+  fallaDireccionAsistida?: EstatusEnum;
 }

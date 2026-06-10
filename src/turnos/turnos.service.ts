@@ -73,32 +73,25 @@ function valoresFluidosDefinidos(dto: RegistrarNivelesFluidosBitacoraDto): numbe
 
 /** Campos de indicadores del DTO (excluye ids y bitácora) para regla de estatus de fila */
 function valoresIndicadoresTestigos(dto: RegistrarTestigosBitacoraDto): EstatusEnum[] {
-  return [
-    dto.temperaturaMotorAlta,
-    dto.presionAceite,
-    dto.bateria,
-    dto.airbag,
-    dto.checkEngine,
-    dto.abs,
-    dto.sistemaFrenos,
-    dto.controlEstabilidad,
-    dto.controlTraccion,
-    dto.nivelCombustible,
-    dto.filtroParticulas,
-    dto.bujiasIncandecentes,
-    dto.presionNeumatico,
-    dto.fallaDireccionAsistida,
-    dto.refrigeranteMotor,
-    dto.bloqueoDiferencial,
-    dto.controlAcelerador,
-    dto.llavePresencia,
-    dto.nivelLiquidoFrenos,
-    dto.cajuela,
-    dto.puerta,
-    dto.cinturonSeguridad,
-    dto.cambioAceite,
-    dto.servicio,
-  ];
+  const keys = [
+    'abs',
+    'potencia',
+    'cinturonSeguridad',
+    'luces',
+    'presionAceite',
+    'bateria',
+    'checkEngine',
+    'airbag',
+    'presionNeumatico',
+    'sistemaFrenos',
+    'temperaturaMotor',
+    'fallaDireccionAsistida',
+  ] as const;
+  const out: EstatusEnum[] = [];
+  for (const k of keys) {
+    out.push(dto[k] ?? EstatusEnum.INACTIVO);
+  }
+  return out;
 }
 
 function valoresLucesDefinidos(dto: RegistrarLucesBitacoraDto): EstatusEnum[] {
@@ -833,30 +826,18 @@ export class TurnosService {
           idTurno: bitacora.idTurno,
           idVehiculo: bitacora.idVehiculo,
           estatus: estatusFila,
-          temperaturaMotorAlta: dto.temperaturaMotorAlta,
-          presionAceite: dto.presionAceite,
-          bateria: dto.bateria,
-          airbag: dto.airbag,
-          checkEngine: dto.checkEngine,
-          abs: dto.abs,
-          sistemaFrenos: dto.sistemaFrenos,
-          controlEstabilidad: dto.controlEstabilidad,
-          controlTraccion: dto.controlTraccion,
-          nivelCombustible: dto.nivelCombustible,
-          filtroParticulas: dto.filtroParticulas,
-          bujiasIncandecentes: dto.bujiasIncandecentes,
-          presionNeumatico: dto.presionNeumatico,
-          fallaDireccionAsistida: dto.fallaDireccionAsistida,
-          refrigeranteMotor: dto.refrigeranteMotor,
-          bloqueoDiferencial: dto.bloqueoDiferencial,
-          controlAcelerador: dto.controlAcelerador,
-          llavePresencia: dto.llavePresencia,
-          nivelLiquidoFrenos: dto.nivelLiquidoFrenos,
-          cajuela: dto.cajuela,
-          puerta: dto.puerta,
-          cinturonSeguridad: dto.cinturonSeguridad,
-          cambioAceite: dto.cambioAceite,
-          servicio: dto.servicio,
+          abs: dto.abs ?? EstatusEnum.INACTIVO,
+          potencia: dto.potencia ?? EstatusEnum.INACTIVO,
+          cinturonSeguridad: dto.cinturonSeguridad ?? EstatusEnum.INACTIVO,
+          luces: dto.luces ?? EstatusEnum.INACTIVO,
+          presionAceite: dto.presionAceite ?? EstatusEnum.INACTIVO,
+          bateria: dto.bateria ?? EstatusEnum.INACTIVO,
+          checkEngine: dto.checkEngine ?? EstatusEnum.INACTIVO,
+          airbag: dto.airbag ?? EstatusEnum.INACTIVO,
+          presionNeumatico: dto.presionNeumatico ?? EstatusEnum.INACTIVO,
+          sistemaFrenos: dto.sistemaFrenos ?? EstatusEnum.INACTIVO,
+          temperaturaMotor: dto.temperaturaMotor ?? EstatusEnum.INACTIVO,
+          fallaDireccionAsistida: dto.fallaDireccionAsistida ?? EstatusEnum.INACTIVO,
         });
         const saved = await testigosRepo.save(testigo);
         await bvRepo.update(bitacora.id, { idTestigosVehiculo: saved.id });
