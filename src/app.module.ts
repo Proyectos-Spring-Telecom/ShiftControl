@@ -18,6 +18,7 @@ import { TurnosModule } from './turnos/turnos.module';
 import { ReportesModule } from './reportes/reportes.module';
 import { EmbedModule } from './embed/embed.module';
 import { PlacasModule } from './placas/placas.module';
+import { UbicacionModule } from './ubicacion/ubicacion.module';
 import Joi from 'joi';
 
 @Module({
@@ -62,6 +63,7 @@ import Joi from 'joi';
         BEHAVIORIQ_BASE_URL: Joi.string().uri().optional(),
         BEHAVIORIQ_USER_NAME: Joi.string().optional().allow(''),
         BEHAVIORIQ_PASSWORD: Joi.string().optional().allow(''),
+        NOMINATIM_BASE_URL: Joi.string().uri().optional(),
       }),
     }),
 
@@ -132,6 +134,8 @@ import Joi from 'joi';
     EmbedModule,
 
     PlacasModule,
+
+    UbicacionModule,
   ],
   providers: [
     {
