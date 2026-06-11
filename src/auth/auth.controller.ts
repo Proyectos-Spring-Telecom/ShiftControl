@@ -170,20 +170,14 @@ export class AuthController {
   @Throttle({
     default: { limit: THROTTLE_LOGIN_LIMIT, ttl: THROTTLE_LOGIN_TTL_MS },
   })
-  @ApiQuery({
-    name: 'Nombres',
-    required: false,
-    description:
-      'Nombre de la solución (debe existir en Soluciones y debe estar activo). Ej.: AM, PM',
-  })
   async login(
     @Body() dto: LoginAuthDto,
-    @Query('Nombres') nombres: string | undefined,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    req.query = { ...req.query, Nombres: 'SIT' };
     this.logger.log(
-      `Proxy → POST login userName=${dto.userName} Nombres=${nombres ?? '(vacío)'}`,
+      `Proxy → POST login userName=${dto.userName} Nombres=SIT`,
     );
     const r = await this.endpointProxy.forwardPost('login', dto, req);
     this.logger.log(`Proxy ← POST login status=${r.status}`);
