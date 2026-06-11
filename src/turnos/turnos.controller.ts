@@ -772,7 +772,7 @@ export class TurnosController {
       required: [
         'idBitacoraVehiculo',
         'idCatVistaVehiculo',
-        'idCatPartesVehiculoEx',
+        'partesVehiculoEx',
         'idCatTipoDano',
         'idCatGradoSeveridad',
         'evidenciaFotografica',
@@ -780,7 +780,10 @@ export class TurnosController {
       properties: {
         idBitacoraVehiculo: { type: 'integer', example: 1 },
         idCatVistaVehiculo: { type: 'integer', example: 1 },
-        idCatPartesVehiculoEx: { type: 'integer', example: 1 },
+        partesVehiculoEx: {
+          type: 'string',
+          example: 'Parachoques delantero',
+        },
         idCatTipoDano: { type: 'integer', example: 1 },
         idCatGradoSeveridad: { type: 'integer', example: 1 },
         evidenciaFotografica: {

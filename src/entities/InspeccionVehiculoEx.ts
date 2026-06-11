@@ -1,6 +1,7 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -10,11 +11,16 @@ import { Turnos } from './Turnos';
 import { BitacoraVehiculo } from './BitacoraVehiculo';
 import { Vehiculos } from './Vehiculos';
 import { CatVistaVehiculo } from './CatVistaVehiculo';
-import { CatPartesVehiculoEx } from './CatPartesVehiculoEx';
 import { CatTipoDano } from './CatTipoDano';
 import { CatGradoSeveridad } from './CatGradoSeveridad';
 
 @applySchema
+@Index('IX_InspeccionVehiculoEx_IdBitacoraVehiculo', ['idBitacoraVehiculo'])
+@Index('IX_InspeccionVehiculoEx_IdVehiculo', ['idVehiculo'])
+@Index('IX_InspeccionVehiculoEx_IdCatVistaVehiculo', ['idCatVistaVehiculo'])
+@Index('IX_InspeccionVehiculoEx_IdCatTipoDano', ['idCatTipoDano'])
+@Index('IX_InspeccionVehiculoEx_IdCatGradoSeveridad', ['idCatGradoSeveridad'])
+@Index('FK_InspeccionVehiculoEx_Turnos_idx', ['idTurno'])
 @Entity('InspeccionVehiculoEx')
 export class InspeccionVehiculoEx {
   @PrimaryGeneratedColumn({ type: 'bigint', name: 'Id' })
@@ -32,8 +38,8 @@ export class InspeccionVehiculoEx {
   @Column('bigint', { name: 'IdCatVistaVehiculo' })
   idCatVistaVehiculo: number;
 
-  @Column('bigint', { name: 'IdCatPartesVehiculoEx' })
-  idCatPartesVehiculoEx: number;
+  @Column('varchar', { name: 'PartesVehiculoEx', length: 100 })
+  partesVehiculoEx: string;
 
   @Column('bigint', { name: 'IdCatTipoDano' })
   idCatTipoDano: number;
@@ -91,14 +97,6 @@ export class InspeccionVehiculoEx {
   })
   @JoinColumn([{ name: 'IdCatVistaVehiculo', referencedColumnName: 'id' }])
   catVistaVehiculo: CatVistaVehiculo;
-
-  @ManyToOne(() => CatPartesVehiculoEx, {
-    nullable: false,
-    onDelete: 'RESTRICT',
-    onUpdate: 'CASCADE',
-  })
-  @JoinColumn([{ name: 'IdCatPartesVehiculoEx', referencedColumnName: 'id' }])
-  catPartesVehiculoEx: CatPartesVehiculoEx;
 
   @ManyToOne(() => CatTipoDano, {
     nullable: false,

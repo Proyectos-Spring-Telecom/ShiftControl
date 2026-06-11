@@ -183,6 +183,10 @@ SELECT
   iv.IdTurno AS iv_idTurno,
   iv.IdBitacoraVehiculo AS iv_idBitacoraVehiculo,
   iv.IdVehiculo AS iv_idVehiculo,
+  iv.IdCatVistaVehiculo AS iv_idCatVistaVehiculo,
+  iv.PartesVehiculoEx AS iv_partesVehiculoEx,
+  iv.IdCatTipoDano AS iv_idCatTipoDano,
+  iv.IdCatGradoSeveridad AS iv_idCatGradoSeveridad,
   iv.EvidenciaFotografica AS iv_evidenciaFotografica,
   iv.FechaCreacion AS iv_fechaCreacion,
   iv.FechaActualizacion AS iv_fechaActualizacion,
@@ -191,11 +195,6 @@ SELECT
   cv.Estatus AS cv_estatus,
   cv.FechaCreacion AS cv_fechaCreacion,
   cv.FechaActualizacion AS cv_fechaActualizacion,
-  cp.Id AS cp_id,
-  cp.Nombre AS cp_nombre,
-  cp.Estatus AS cp_estatus,
-  cp.FechaCreacion AS cp_fechaCreacion,
-  cp.FechaActualizacion AS cp_fechaActualizacion,
   ctd.Id AS ctd_id,
   ctd.Nombre AS ctd_nombre,
   ctd.Estatus AS ctd_estatus,
@@ -208,7 +207,6 @@ SELECT
   cgs.FechaActualizacion AS cgs_fechaActualizacion
 FROM InspeccionVehiculoEx iv
 LEFT JOIN CatVistaVehiculo cv ON cv.Id = iv.IdCatVistaVehiculo
-LEFT JOIN CatPartesVehiculoEx cp ON cp.Id = iv.IdCatPartesVehiculoEx
 LEFT JOIN CatTipoDano ctd ON ctd.Id = iv.IdCatTipoDano
 LEFT JOIN CatGradoSeveridad cgs ON cgs.Id = iv.IdCatGradoSeveridad
 WHERE iv.IdTurno = ?
@@ -525,11 +523,14 @@ function mapInspeccionRow(r: Record<string, unknown>): Record<string, unknown> {
     idTurno: num(r.iv_idTurno),
     idBitacoraVehiculo: num(r.iv_idBitacoraVehiculo),
     idVehiculo: num(r.iv_idVehiculo),
+    idCatVistaVehiculo: num(r.iv_idCatVistaVehiculo),
+    partesVehiculoEx: str(r.iv_partesVehiculoEx) ?? '',
+    idCatTipoDano: num(r.iv_idCatTipoDano),
+    idCatGradoSeveridad: num(r.iv_idCatGradoSeveridad),
     evidenciaFotografica: str(r.iv_evidenciaFotografica) ?? '',
     fechaCreacion: r.iv_fechaCreacion ?? null,
     fechaActualizacion: r.iv_fechaActualizacion ?? null,
     catVistaVehiculo: mapCat(r, 'cv'),
-    catPartesVehiculoEx: mapCat(r, 'cp'),
     catTipoDano: mapCat(r, 'ctd'),
     catGradoSeveridad: mapCat(r, 'cgs'),
   };

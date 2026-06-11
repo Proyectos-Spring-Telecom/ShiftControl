@@ -1227,7 +1227,7 @@ export class TurnosService {
           idBitacoraVehiculo: bitacora.id,
           idVehiculo: bitacora.idVehiculo,
           idCatVistaVehiculo: dto.idCatVistaVehiculo,
-          idCatPartesVehiculoEx: dto.idCatPartesVehiculoEx,
+          partesVehiculoEx: dto.partesVehiculoEx,
           idCatTipoDano: dto.idCatTipoDano,
           idCatGradoSeveridad: dto.idCatGradoSeveridad,
           evidenciaFotografica: urlFoto,

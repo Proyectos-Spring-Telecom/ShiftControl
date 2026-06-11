@@ -148,7 +148,7 @@ export class ReportesPdfService {
       });
       inspecciones = await this.inspeccionRepo.find({
         where: { idVehiculo, idTurno: In(turnoIds) },
-        relations: ['catVistaVehiculo', 'catPartesVehiculoEx', 'catTipoDano', 'catGradoSeveridad'],
+        relations: ['catVistaVehiculo', 'catTipoDano', 'catGradoSeveridad'],
         order: { id: 'ASC' },
       });
     }
@@ -510,13 +510,12 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
         const i = asRecord(raw);
         if (!i) return '';
         const cv = asRecord(i.catVistaVehiculo);
-        const cp = asRecord(i.catPartesVehiculoEx);
         const ctd = asRecord(i.catTipoDano);
         const cgs = asRecord(i.catGradoSeveridad);
         return `<tr>
           <td>${Number(i.id)}</td>
           <td>${escapeHtml(String(cv?.nombre ?? '—'))}</td>
-          <td>${escapeHtml(String(cp?.nombre ?? '—'))}</td>
+          <td>${escapeHtml(String(i.partesVehiculoEx ?? '—'))}</td>
           <td>${escapeHtml(String(ctd?.nombre ?? '—'))}</td>
           <td>${escapeHtml(String(cgs?.nombre ?? '—'))}</td>
           <td>${escapeHtml(this.formatFecha(i.fechaCreacion as Date))}</td>

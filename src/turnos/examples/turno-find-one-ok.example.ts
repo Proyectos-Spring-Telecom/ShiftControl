@@ -296,6 +296,10 @@ export const turnoFindOneOkExample = {
         idTurno: 1,
         idBitacoraVehiculo: 1,
         idVehiculo: 1,
+        idCatVistaVehiculo: 1,
+        partesVehiculoEx: 'Cofre',
+        idCatTipoDano: 1,
+        idCatGradoSeveridad: 1,
         evidenciaFotografica:
           'https://shiftcontrolspring.s3.us-east-1.amazonaws.com/inspeccion-vehiculo-ex/c0cac159-1659-422d-ae76-97f418a04a16.jpeg',
         fechaCreacion: '2026-04-15T18:07:02.000Z',
@@ -305,13 +309,6 @@ export const turnoFindOneOkExample = {
           nombre: 'Frontal',
           estatus: 1,
           fechaCreacion: '2026-04-15T01:17:08.000Z',
-          fechaActualizacion: '2026-04-15T01:02:45.000Z',
-        },
-        catPartesVehiculoEx: {
-          id: 1,
-          nombre: 'Cofre',
-          estatus: 1,
-          fechaCreacion: '2026-04-15T01:18:23.000Z',
           fechaActualizacion: '2026-04-15T01:02:45.000Z',
         },
         catTipoDano: {
@@ -334,6 +331,10 @@ export const turnoFindOneOkExample = {
         idTurno: 1,
         idBitacoraVehiculo: 2,
         idVehiculo: 1,
+        idCatVistaVehiculo: 1,
+        partesVehiculoEx: 'Cofre',
+        idCatTipoDano: 1,
+        idCatGradoSeveridad: 1,
         evidenciaFotografica:
           'https://shiftcontrolspring.s3.us-east-1.amazonaws.com/inspeccion-vehiculo-ex/c0d5f661-1077-4d3f-ad7d-f50f0dac4ccf.jpeg',
         fechaCreacion: '2026-04-15T18:19:20.000Z',
@@ -343,13 +344,6 @@ export const turnoFindOneOkExample = {
           nombre: 'Frontal',
           estatus: 1,
           fechaCreacion: '2026-04-15T01:17:08.000Z',
-          fechaActualizacion: '2026-04-15T01:02:45.000Z',
-        },
-        catPartesVehiculoEx: {
-          id: 1,
-          nombre: 'Cofre',
-          estatus: 1,
-          fechaCreacion: '2026-04-15T01:18:23.000Z',
           fechaActualizacion: '2026-04-15T01:02:45.000Z',
         },
         catTipoDano: {
