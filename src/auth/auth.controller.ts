@@ -140,7 +140,6 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    req.query = { ...req.query, Nombres: 'SIT' };
     this.logger.log(
       `Proxy → POST login/operador/accesso/nip userName=${dto.userName} Nombres=SIT`,
     );
@@ -148,6 +147,7 @@ export class AuthController {
       'login/operador/accesso/nip',
       dto,
       req,
+      { Nombres: 'SIT' },
     );
     this.logger.log(
       `Proxy ← POST login/operador/accesso/nip status=${r.status}`,
@@ -167,11 +167,12 @@ export class AuthController {
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
-    req.query = { ...req.query, Nombres: 'SIT' };
     this.logger.log(
       `Proxy → POST login userName=${dto.userName} Nombres=SIT`,
     );
-    const r = await this.endpointProxy.forwardPost('login', dto, req);
+    const r = await this.endpointProxy.forwardPost('login', dto, req, {
+      Nombres: 'SIT',
+    });
     this.logger.log(`Proxy ← POST login status=${r.status}`);
     await this.authLoginShadow.applyShadowSyncFromLoginResponse(r.data, r.status, {
       warnWhenMissingClaims: true,

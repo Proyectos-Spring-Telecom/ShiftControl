@@ -54,8 +54,13 @@ export class EndpointProxyService {
     return Object.keys(out).length > 0 ? out : undefined;
   }
 
-  async forwardPost(path: string, body: unknown, req: Request) {
-    return this.forward('post', path, body, req);
+  async forwardPost(
+    path: string,
+    body: unknown,
+    req: Request,
+    extraParams?: Record<string, string>,
+  ) {
+    return this.forward('post', path, body, req, extraParams);
   }
 
   async forwardPatch(path: string, body: unknown, req: Request) {
@@ -106,10 +111,15 @@ export class EndpointProxyService {
     path: string,
     body: unknown,
     req: Request,
+    extraParams?: Record<string, string>,
   ): Promise<{ status: number; data: unknown }> {
     const url = path.replace(/^\/+/, '');
     const authorization = this.pickAuthHeader(req);
-    const params = this.queryToParams(req.query);
+    const params = {
+      ...this.queryToParams(req.query),
+      ...extraParams,
+    };
+    const queryParams = Object.keys(params).length > 0 ? params : undefined;
     const headers: Record<string, string> = {};
     if (authorization) {
       headers['Authorization'] = authorization;
@@ -123,7 +133,7 @@ export class EndpointProxyService {
         url,
         data: body,
         headers,
-        params,
+        params: queryParams,
       });
       return { status: res.status, data: res.data };
     } catch (err) {
