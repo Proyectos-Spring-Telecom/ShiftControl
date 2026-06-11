@@ -601,7 +601,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar luces del vehículo (bitácora en turno en curso)',
     description:
-      'JSON: idBitacoraVehiculo y luces opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si alguna luz enviada es ACTIVO (1), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdLucesVehiculo.',
+      'JSON: idBitacoraVehiculo y luces opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si alguna luz enviada es INACTIVO (0), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdLucesVehiculo.',
   })
   @ApiBody({ type: RegistrarLucesBitacoraDto })
   @ApiResponse({
@@ -655,7 +655,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar documentación del vehículo (bitácora en turno en curso)',
     description:
-      'JSON: idBitacoraVehiculo y campos opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si algún campo enviado es ACTIVO (1), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdDocumentacionVehiculo.',
+      'JSON: idBitacoraVehiculo y campos opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si algún campo enviado es INACTIVO (0), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdDocumentacionVehiculo.',
   })
   @ApiBody({ type: RegistrarDocumentacionBitacoraDto })
   @ApiResponse({
@@ -709,7 +709,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar accesorios del vehículo (bitácora en turno en curso)',
     description:
-      'JSON: idBitacoraVehiculo y campos opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si algún campo enviado es ACTIVO (1), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdAccesoriosVehiculo.',
+      'JSON: idBitacoraVehiculo y campos opcionales (EstatusEnum 0/1). idTurno e idVehiculo desde la bitácora. Si algún campo enviado es INACTIVO (0), estatus de fila = 1; si no, 0. Enlaza BitacoraVehiculo.IdAccesoriosVehiculo.',
   })
   @ApiBody({ type: RegistrarAccesoriosBitacoraDto })
   @ApiResponse({

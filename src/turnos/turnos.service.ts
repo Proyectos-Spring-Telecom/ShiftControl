@@ -125,8 +125,6 @@ function valoresDocumentacionDefinidos(
     'polizaSeguro',
     'tarjetaCirculacion',
     'verificacion',
-    'permisoCarga',
-    'cartaPorte',
   ] as const;
   const out: EstatusEnum[] = [];
   for (const k of keys) {
@@ -973,7 +971,9 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const estatusFila = valoresLucesDefinidos(dto).some((v) => v === EstatusEnum.ACTIVO)
+      const estatusFila = valoresLucesDefinidos(dto).some(
+        (v) => v === EstatusEnum.INACTIVO,
+      )
         ? EstatusEnum.ACTIVO
         : EstatusEnum.INACTIVO;
 
@@ -1051,7 +1051,7 @@ export class TurnosService {
       }
 
       const estatusFila = valoresDocumentacionDefinidos(dto).some(
-        (v) => v === EstatusEnum.ACTIVO,
+        (v) => v === EstatusEnum.INACTIVO,
       )
         ? EstatusEnum.ACTIVO
         : EstatusEnum.INACTIVO;
@@ -1069,8 +1069,6 @@ export class TurnosService {
           polizaSeguro: dto.polizaSeguro ?? null,
           tarjetaCirculacion: dto.tarjetaCirculacion ?? null,
           verificacion: dto.verificacion ?? null,
-          permisoCarga: dto.permisoCarga ?? null,
-          cartaPorte: dto.cartaPorte ?? null,
         });
         const saved = await docRepo.save(doc);
         await bvRepo.update(bitacora.id, { idDocumentacionVehiculo: saved.id });
@@ -1128,7 +1126,7 @@ export class TurnosService {
       }
 
       const estatusFila = valoresAccesoriosDefinidos(dto).some(
-        (v) => v === EstatusEnum.ACTIVO,
+        (v) => v === EstatusEnum.INACTIVO,
       )
         ? EstatusEnum.ACTIVO
         : EstatusEnum.INACTIVO;

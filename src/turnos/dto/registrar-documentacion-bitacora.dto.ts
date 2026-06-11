@@ -41,14 +41,4 @@ export class RegistrarDocumentacionBitacoraDto {
   @IsEnum(EstatusEnum)
   @ApiPropertyOptional(docEnum)
   verificacion?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(docEnum)
-  permisoCarga?: EstatusEnum;
-
-  @IsOptional()
-  @IsEnum(EstatusEnum)
-  @ApiPropertyOptional(docEnum)
-  cartaPorte?: EstatusEnum;
 }

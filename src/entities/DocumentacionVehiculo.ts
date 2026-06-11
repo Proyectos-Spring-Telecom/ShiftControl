@@ -36,12 +36,6 @@ export class DocumentacionVehiculo {
   @Column('tinyint', { name: 'Verificacion', nullable: true })
   verificacion: number | null;
 
-  @Column('tinyint', { name: 'PermisoCarga', nullable: true })
-  permisoCarga: number | null;
-
-  @Column('tinyint', { name: 'CartaPorte', nullable: true })
-  cartaPorte: number | null;
-
   @Column('tinyint', { name: 'Estatus', default: 1 })
   estatus: number;
 
