@@ -7,7 +7,6 @@ import {
   Logger,
   Patch,
   Post,
-  Query,
   Req,
   Res,
   UseGuards,
@@ -21,7 +20,6 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
-  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -137,20 +135,14 @@ export class AuthController {
   @Throttle({
     default: { limit: THROTTLE_PIN_LIMIT, ttl: THROTTLE_PIN_TTL_MS },
   })
-  @ApiQuery({
-    name: 'Nombres',
-    required: false,
-    description:
-      'Nombre de la solución (debe existir en Soluciones y debe estar activo). Ej.: AM, PM',
-  })
   async loginPin(
     @Body() dto: LoginAuthPinDto,
-    @Query('Nombres') nombres: string | undefined,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ) {
+    req.query = { ...req.query, Nombres: 'SIT' };
     this.logger.log(
-      `Proxy → POST login/operador/accesso/nip userName=${dto.userName} Nombres=${nombres ?? '(vacío)'}`,
+      `Proxy → POST login/operador/accesso/nip userName=${dto.userName} Nombres=SIT`,
     );
     const r = await this.endpointProxy.forwardPost(
       'login/operador/accesso/nip',
