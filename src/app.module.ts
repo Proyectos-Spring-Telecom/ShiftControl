@@ -19,6 +19,7 @@ import { ReportesModule } from './reportes/reportes.module';
 import { EmbedModule } from './embed/embed.module';
 import { PlacasModule } from './placas/placas.module';
 import { UbicacionModule } from './ubicacion/ubicacion.module';
+import { BitacoraVehicularModule } from './bitacora-vehicular/bitacora-vehicular.module';
 import Joi from 'joi';
 
 @Module({
@@ -136,6 +137,8 @@ import Joi from 'joi';
     PlacasModule,
 
     UbicacionModule,
+
+    BitacoraVehicularModule,
   ],
   providers: [
     {
