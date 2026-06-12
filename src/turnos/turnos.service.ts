@@ -43,14 +43,11 @@ import {
   EnumTipoBitacoraVehiculo,
 } from 'src/common/estatus.enum';
 import { S3Service } from 'src/s3/s3.service';
-import { BehaviorIqAuthService } from 'src/integration/behavioriq/behavioriq-auth.service';
-import { BehaviorIqPlateService } from 'src/integration/behavioriq/behavioriq-plate.service';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
 import { loadTurnoDetalleSql } from './turnos-find-one-raw';
 import type { Request } from 'express';
 
-const OCR_MIN_CONFIDENCE = 0.7;
 const UMBRAL_NIVEL_FLUIDO_BAJO = 25;
 
 function valoresFluidosDefinidos(dto: RegistrarNivelesFluidosBitacoraDto): number[] {
@@ -178,11 +175,9 @@ export class TurnosService {
     @InjectRepository(IncidenciaGasolina)
     private readonly incidenciaGasolinaRepository: Repository<IncidenciaGasolina>,
     private readonly s3Service: S3Service,
-    private readonly behaviorIqAuth: BehaviorIqAuthService,
-    private readonly behaviorIqPlate: BehaviorIqPlateService,
     private readonly vehiculosService: VehiculosService,
     private readonly tenantFilter: TenantFilterService,
-  ) {}
+  ) { }
 
   private normalizePlacaKey(value: string): string {
     return value.toUpperCase().replace(/[-\s]/g, '');
@@ -281,50 +276,26 @@ export class TurnosService {
     try {
       if (!evidenciaAperturaFile?.buffer?.length) {
         throw new BadRequestException(
-          'Debe adjuntar la imagen evidenciaApertura para lectura de placa (OCR)',
+          'Debe adjuntar la imagen evidenciaApertura',
         );
       }
 
-      const { token } = await this.behaviorIqAuth.loginWithEnvCredentials();
-      const ocr = await this.behaviorIqPlate.readPlate(evidenciaAperturaFile, token);
-
-      console.log(ocr);
-      if (ocr.confidence <= OCR_MIN_CONFIDENCE) {
-        throw new BadRequestException(
-          `Confianza del OCR demasiado baja (${ocr.confidence.toFixed(3)}; debe ser mayor a ${OCR_MIN_CONFIDENCE})`,
-        );
-      }
-
-      const placaOcrNorm = this.normalizePlacaKey(ocr.plate_number.trim());
-      if (!placaOcrNorm) {
-        throw new BadRequestException('OCR no devolvió un número de placa válido');
-      }
-
-      const validacionBi = await this.behaviorIqPlate.validarPlaca(
-        {
-          numeroPlaca: ocr.plate_number.trim(),
-          latitud: dto.latitud,
-          longitud: dto.longitud,
-        },
-        token,
-      );
-      if (!validacionBi.registered) {
-        throw new BadRequestException(
-          `La placa "${ocr.plate_number.trim()}" no está registrada en BehaviorIQ`,
-        );
+      const placaNorm = this.normalizePlacaKey(dto.placa.trim());
+      if (!placaNorm) {
+        throw new BadRequestException('Placa inválida');
       }
 
       const vehiculo = await this.vehiculosRepository
         .createQueryBuilder('v')
         .where(`REPLACE(REPLACE(UPPER(TRIM(v.placas)), '-', ''), ' ', '') = :norm`, {
-          norm: placaOcrNorm,
+          norm: placaNorm,
         })
         .andWhere('v.idCliente = :idCliente', { idCliente })
         .getOne();
 
       if (!vehiculo) {
         throw new BadRequestException(
-          `Vehículo con placa detectada "${ocr.plate_number}" no encontrado en tabla sombra. Ejecute POST /api/vehiculos/sync primero`,
+          `Vehículo con placa "${dto.placa.trim()}" no encontrado en tabla sombra. Ejecute POST /api/vehiculos/sync primero`,
         );
       }
 
@@ -399,11 +370,10 @@ export class TurnosService {
         },
       );
 
-      const placaParaNext = vehiculo.placas?.trim() || ocr.plate_number.trim();
-      const vehiculoPorPlaca = await this.vehiculosService.findOneByPlaca(
-        placaParaNext,
-        req,
-      );
+      const placaParaNext = vehiculo.placas?.trim() ?? '';
+      const vehiculoPorPlaca = placaParaNext
+        ? await this.vehiculosService.findOneByPlaca(placaParaNext, req)
+        : { status: 404, data: null };
 
       return {
         status: 'success',
@@ -413,7 +383,7 @@ export class TurnosService {
           nombre: `Turno #${saved.id} - ${vehiculo.placas}`,
           idTurno: Number(saved.id),
           idBitacoraApertura,
-          ...vehiculoPorPlaca,
+          vehiculoPorPlaca,
         },
       };
     } catch (error) {
@@ -1437,7 +1407,7 @@ export class TurnosService {
     if (!turno || turno.idCliente !== idCliente) {
       throw new BadRequestException('El turno asociado no es válido para este cliente');
     }
-    
+
 
     const faltantes = this.bitacoraVehiculoCamposFaltantes(bitacora);
     if (faltantes.length > 0) {
@@ -1793,12 +1763,12 @@ export class TurnosService {
       duracionSegundos,
       vehiculo: v
         ? {
-            id: Number(v.id),
-            placas: v.placas,
-            fotoFrente: v.fotoFrente ?? null,
-            idCliente: Number(v.idCliente),
-            detalle: detalleNext,
-          }
+          id: Number(v.id),
+          placas: v.placas,
+          fotoFrente: v.fotoFrente ?? null,
+          idCliente: Number(v.idCliente),
+          detalle: detalleNext,
+        }
         : null,
     };
   }

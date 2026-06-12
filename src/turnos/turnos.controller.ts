@@ -123,19 +123,21 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Crear turno (abrir turno)',
     description:
-      'multipart/form-data: latitud, longitud, imagen evidenciaApertura. OCR behaviorIQ obtiene la placa (confianza > 0.7); el vehículo debe existir en tabla sombra.',
+      'multipart/form-data: placa, latitud, longitud e imagen evidenciaApertura. ' +
+      'El vehículo debe existir en tabla sombra (validar placa/OCR por separado con /api/plate/read y /api/placas/validar).',
   })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['latitud', 'longitud', 'evidenciaApertura'],
+      required: ['placa', 'latitud', 'longitud', 'evidenciaApertura'],
       properties: {
+        placa: { type: 'string', example: 'NU-7653-B' },
         latitud: { type: 'number', example: 18.9242156 },
         longitud: { type: 'number', example: -99.2340987 },
         evidenciaApertura: {
           type: 'string',
           format: 'binary',
-          description: 'Imagen para OCR de placa y evidencia en S3',
+          description: 'Imagen de evidencia de apertura (sube a S3)',
         },
       },
     },
@@ -256,7 +258,7 @@ export class TurnosController {
   @ApiResponse({
     status: 400,
     description:
-      'Sin imagen, OCR bajo umbral, placa no registrada o no identificada (BehaviorIQ), placa no en sombra, sin evidencia o turno activo',
+      'Sin imagen, placa inválida, vehículo no encontrado en sombra, turno activo del vehículo o URL de evidencia inválida',
   })
   @UseInterceptors(FileInterceptor('evidenciaApertura', TURNOS_CREATE_UPLOAD))
   async create(
