@@ -9,8 +9,7 @@ import { applySchema } from 'src/common/apply-schema.decorator';
 import { Turnos } from './Turnos';
 import { Clientes } from './Clientes';
 import { Vehiculos } from './Vehiculos';
-import { CatTipoDano } from './CatTipoDano';
-import { CatGradoSeveridad } from './CatGradoSeveridad';
+import { CatTipoIncidente } from './CatTipoIncidente';
 
 @applySchema
 @Entity('IncidenciaAccidente')
@@ -27,11 +26,8 @@ export class IncidenciaAccidente {
   @Column('bigint', { name: 'IdVehiculo' })
   idVehiculo: number;
 
-  @Column('bigint', { name: 'IdCatTipoDano' })
-  idCatTipoDano: number;
-
-  @Column('bigint', { name: 'IdCatGradoSeveridad', default: 1 })
-  idCatGradoSeveridad: number;
+  @Column('bigint', { name: 'IdCatTipoIncidente', default: 1 })
+  idCatTipoIncidente: number;
 
   @Column('text', { name: 'Descripcion' })
   descripcion: string;
@@ -107,19 +103,11 @@ export class IncidenciaAccidente {
   @JoinColumn([{ name: 'IdVehiculo', referencedColumnName: 'id' }])
   vehiculo: Vehiculos;
 
-  @ManyToOne(() => CatTipoDano, {
+  @ManyToOne(() => CatTipoIncidente, {
     nullable: false,
     onDelete: 'RESTRICT',
     onUpdate: 'CASCADE',
   })
-  @JoinColumn([{ name: 'IdCatTipoDano', referencedColumnName: 'id' }])
-  catTipoDano: CatTipoDano;
-
-  @ManyToOne(() => CatGradoSeveridad, {
-    nullable: false,
-    onDelete: 'RESTRICT',
-    onUpdate: 'CASCADE',
-  })
-  @JoinColumn([{ name: 'IdCatGradoSeveridad', referencedColumnName: 'id' }])
-  catGradoSeveridad: CatGradoSeveridad;
+  @JoinColumn([{ name: 'IdCatTipoIncidente', referencedColumnName: 'id' }])
+  catTipoIncidente: CatTipoIncidente;
 }

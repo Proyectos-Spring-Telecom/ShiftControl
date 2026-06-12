@@ -229,19 +229,13 @@ SELECT
   ia.Estatus AS ia_estatus,
   ia.FechaCreacion AS ia_fechaCreacion,
   ia.FechaActualizacion AS ia_fechaActualizacion,
-  ctd.Id AS iactd_id,
-  ctd.Nombre AS iactd_nombre,
-  ctd.Estatus AS iactd_estatus,
-  ctd.FechaCreacion AS iactd_fechaCreacion,
-  ctd.FechaActualizacion AS iactd_fechaActualizacion,
-  cgs.Id AS iacgs_id,
-  cgs.Nombre AS iacgs_nombre,
-  cgs.Estatus AS iacgs_estatus,
-  cgs.FechaCreacion AS iacgs_fechaCreacion,
-  cgs.FechaActualizacion AS iacgs_fechaActualizacion
+  cti.Id AS iacti_id,
+  cti.Nombre AS iacti_nombre,
+  cti.Estatus AS iacti_estatus,
+  cti.FechaCreacion AS iacti_fechaCreacion,
+  cti.FechaActualizacion AS iacti_fechaActualizacion
 FROM IncidenciaAccidente ia
-LEFT JOIN CatTipoDano ctd ON ctd.Id = ia.IdCatTipoDano
-LEFT JOIN CatGradoSeveridad cgs ON cgs.Id = ia.IdCatGradoSeveridad
+LEFT JOIN CatTipoIncidente cti ON cti.Id = ia.IdCatTipoIncidente
 WHERE ia.IdTurno = ? AND ia.IdCliente = ? AND ia.Estatus = ?
 ORDER BY ia.Id ASC
 `;
@@ -537,24 +531,14 @@ function mapInspeccionRow(r: Record<string, unknown>): Record<string, unknown> {
 }
 
 function mapIncidenciaAccidenteRow(r: Record<string, unknown>): Record<string, unknown> {
-  const catTipoDano =
-    r.iactd_id != null
+  const catTipoIncidente =
+    r.iacti_id != null
       ? {
-          id: num(r.iactd_id),
-          nombre: str(r.iactd_nombre) ?? '',
-          estatus: num(r.iactd_estatus),
-          fechaCreacion: r.iactd_fechaCreacion ?? null,
-          fechaActualizacion: r.iactd_fechaActualizacion ?? null,
-        }
-      : null;
-  const catGradoSeveridad =
-    r.iacgs_id != null
-      ? {
-          id: num(r.iacgs_id),
-          nombre: str(r.iacgs_nombre) ?? '',
-          estatus: num(r.iacgs_estatus),
-          fechaCreacion: r.iacgs_fechaCreacion ?? null,
-          fechaActualizacion: r.iacgs_fechaActualizacion ?? null,
+          id: num(r.iacti_id),
+          nombre: str(r.iacti_nombre) ?? '',
+          estatus: num(r.iacti_estatus),
+          fechaCreacion: r.iacti_fechaCreacion ?? null,
+          fechaActualizacion: r.iacti_fechaActualizacion ?? null,
         }
       : null;
   return {
@@ -572,8 +556,7 @@ function mapIncidenciaAccidenteRow(r: Record<string, unknown>): Record<string, u
     estatus: num(r.ia_estatus),
     fechaCreacion: r.ia_fechaCreacion ?? null,
     fechaActualizacion: r.ia_fechaActualizacion ?? null,
-    catTipoDano,
-    catGradoSeveridad,
+    catTipoIncidente,
   };
 }
 

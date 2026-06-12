@@ -134,7 +134,7 @@ export class ReportesPdfService {
           idTurno: In(turnoIds),
           estatus: EstatusEnum.ACTIVO,
         },
-        relations: ['catTipoDano', 'catGradoSeveridad'],
+        relations: ['catTipoIncidente'],
         order: { id: 'ASC' },
       });
       incidenciasGasolina = await this.incidenciaGasolinaRepo.find({
@@ -535,18 +535,16 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
         if (!i) return '';
         const desc = String(i.descripcion ?? '');
         const short = desc.length > 80 ? `${desc.slice(0, 80)}…` : desc;
-        const ctd = asRecord(i.catTipoDano);
-        const cgs = asRecord(i.catGradoSeveridad);
+        const cti = asRecord(i.catTipoIncidente);
         return `<tr>
           <td>${Number(i.id)}</td>
           <td>${escapeHtml(short)}</td>
-          <td>${escapeHtml(String(ctd?.nombre ?? '—'))}</td>
-          <td>${escapeHtml(String(cgs?.nombre ?? '—'))}</td>
+          <td>${escapeHtml(String(cti?.nombre ?? '—'))}</td>
           <td>${escapeHtml(this.formatFecha(i.fechaRegistro as Date))}</td>
         </tr>`;
       })
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Descripción</th><th>Tipo daño</th><th>Severidad</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table class="data-table"><thead><tr><th>ID</th><th>Descripción</th><th>Tipo incidente</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   private tablaIncidenciasGasolina(arr: unknown): string {

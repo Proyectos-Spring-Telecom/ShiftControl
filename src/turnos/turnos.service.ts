@@ -19,8 +19,7 @@ import { DocumentacionVehiculo } from 'src/entities/DocumentacionVehiculo';
 import { AccesoriosVehiculo } from 'src/entities/AccesoriosVehiculo';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
 import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
-import { CatTipoDano } from 'src/entities/CatTipoDano';
-import { CatGradoSeveridad } from 'src/entities/CatGradoSeveridad';
+import { CatTipoIncidente } from 'src/entities/CatTipoIncidente';
 import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { CreateTurnoDto } from './dto/create-turno.dto';
@@ -168,10 +167,8 @@ export class TurnosService {
     private readonly bitacoraRepository: Repository<BitacoraVehiculo>,
     @InjectRepository(IncidenciaAccidente)
     private readonly incidenciaAccidenteRepository: Repository<IncidenciaAccidente>,
-    @InjectRepository(CatTipoDano)
-    private readonly catTipoDanoRepository: Repository<CatTipoDano>,
-    @InjectRepository(CatGradoSeveridad)
-    private readonly catGradoSeveridadRepository: Repository<CatGradoSeveridad>,
+    @InjectRepository(CatTipoIncidente)
+    private readonly catTipoIncidenteRepository: Repository<CatTipoIncidente>,
     @InjectRepository(IncidenciaGasolina)
     private readonly incidenciaGasolinaRepository: Repository<IncidenciaGasolina>,
     private readonly s3Service: S3Service,
@@ -427,24 +424,14 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const idCatTipoDano = dto.idCatTipoDano ?? 1;
-      const idCatGradoSeveridad = dto.idCatGradoSeveridad ?? 1;
+      const idCatTipoIncidente = dto.idCatTipoIncidente ?? 1;
 
-      const tipoDano = await this.catTipoDanoRepository.findOne({
-        where: { id: idCatTipoDano, estatus: EstatusEnum.ACTIVO },
+      const tipoIncidente = await this.catTipoIncidenteRepository.findOne({
+        where: { id: idCatTipoIncidente, estatus: EstatusEnum.ACTIVO },
       });
-      if (!tipoDano) {
+      if (!tipoIncidente) {
         throw new BadRequestException(
-          'Tipo de daño inválido o inactivo. Envíe idCatTipoDano válido o configure el catálogo con id 1 activo.',
-        );
-      }
-
-      const grado = await this.catGradoSeveridadRepository.findOne({
-        where: { id: idCatGradoSeveridad, estatus: EstatusEnum.ACTIVO },
-      });
-      if (!grado) {
-        throw new BadRequestException(
-          'Grado de severidad inválido o inactivo. Envíe idCatGradoSeveridad válido o configure el catálogo con id 1 activo.',
+          'Tipo de incidente inválido o inactivo. Envíe idCatTipoIncidente válido o configure el catálogo con id 1 activo.',
         );
       }
 
@@ -501,8 +488,7 @@ export class TurnosService {
         idTurno: turno.id,
         idCliente,
         idVehiculo: turno.idVehiculo,
-        idCatTipoDano,
-        idCatGradoSeveridad,
+        idCatTipoIncidente,
         descripcion: dto.descripcion.trim(),
         fotoEvidencia1: url1,
         fotoEvidencia2,

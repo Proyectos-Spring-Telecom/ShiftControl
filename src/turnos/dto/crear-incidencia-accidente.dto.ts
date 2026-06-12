@@ -41,18 +41,8 @@ export class CrearIncidenciaAccidenteDto {
   @IsInt()
   @Min(1)
   @ApiPropertyOptional({
-    description: 'Si no se envía, se usa id 1 (debe existir y estar activo en catálogo)',
-    example: 2,
-  })
-  idCatTipoDano?: number;
-
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  @ApiPropertyOptional({
-    description: 'Si no se envía, se usa 1 (valor por defecto en base de datos)',
+    description: 'Si no se envía, se usa id 1 (debe existir y estar activo en CatTipoIncidente)',
     example: 1,
   })
-  idCatGradoSeveridad?: number;
+  idCatTipoIncidente?: number;
 }

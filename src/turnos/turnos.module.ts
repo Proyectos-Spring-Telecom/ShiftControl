@@ -12,8 +12,7 @@ import { DocumentacionVehiculo } from 'src/entities/DocumentacionVehiculo';
 import { AccesoriosVehiculo } from 'src/entities/AccesoriosVehiculo';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
 import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
-import { CatTipoDano } from 'src/entities/CatTipoDano';
-import { CatGradoSeveridad } from 'src/entities/CatGradoSeveridad';
+import { CatTipoIncidente } from 'src/entities/CatTipoIncidente';
 import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { TurnosController } from './turnos.controller';
 import { TurnosService } from './turnos.service';
@@ -37,8 +36,7 @@ import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.modul
       AccesoriosVehiculo,
       InspeccionVehiculoEx,
       IncidenciaAccidente,
-      CatTipoDano,
-      CatGradoSeveridad,
+      CatTipoIncidente,
       IncidenciaGasolina,
     ]),
     S3Module,

@@ -286,7 +286,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar incidencia de accidente / daño durante turno en curso',
     description:
-      'multipart: idTurno, descripcion, latitud, longitud y fotoEvidencia1 obligatorios. idCliente e idVehiculo se toman del token y del turno. Fotos 2 y 3 y catálogos opcionales. S3: carpeta turnos/incidencias.',
+      'multipart: idTurno, descripcion, latitud, longitud y fotoEvidencia1 obligatorios. idCliente e idVehiculo se toman del token y del turno. Fotos 2 y 3 e idCatTipoIncidente opcionales. S3: carpeta turnos/incidencias.',
   })
   @ApiBody({
     schema: {
@@ -297,8 +297,11 @@ export class TurnosController {
         descripcion: { type: 'string', example: 'Golpe en parachoques' },
         latitud: { type: 'number', example: 19.4326077 },
         longitud: { type: 'number', example: -99.133208 },
-        idCatTipoDano: { type: 'integer', example: 1, description: 'Opcional; default 1' },
-        idCatGradoSeveridad: { type: 'integer', example: 1, description: 'Opcional; default 1' },
+        idCatTipoIncidente: {
+          type: 'integer',
+          example: 1,
+          description: 'Opcional; default 1 (CatTipoIncidente)',
+        },
         fotoEvidencia1: {
           type: 'string',
           format: 'binary',
