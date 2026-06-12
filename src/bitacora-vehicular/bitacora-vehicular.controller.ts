@@ -24,7 +24,8 @@ type AuthenticatedRequest = Request & { user: { idCliente: number } };
 export class BitacoraVehicularController {
   constructor(
     private readonly bitacoraVehicularService: BitacoraVehicularService,
-  ) {}
+  ) { }
+
 
   @Get('informacion-general')
   @ApiOperation({
