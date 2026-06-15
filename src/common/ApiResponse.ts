@@ -33,7 +33,7 @@ export interface ApiData {
   idPadre?: number | null;
   idBitacoraApertura?: number | null;
   idBitacoraCierre?: number | null;
-  duracion?: number | null;
+  duracion?: string | null;
   idTablero?: number | null;
   idBitacoraVehiculo?: number | null;
   idTestigosVehiculo?: number | null;

@@ -40,7 +40,7 @@ export interface TurnoPlanoVehiculo {
   placas: string;
   fechaApertura: Date | null;
   fechaCierre: Date | null;
-  duracion: number | null;
+  duracion: string | null;
   estatusTurno: string | null;
 }
 
@@ -190,7 +190,7 @@ ${this.estilosBase()}
       <tr><th>Estatus turno</th><td><span class="badge">${escapeHtml(String(t.estatusTurnoNombre ?? '—'))}</span></td></tr>
       <tr><th>Apertura</th><td>${escapeHtml(this.formatFecha(t.fechaApertura as Date | null))}</td></tr>
       <tr><th>Cierre</th><td>${escapeHtml(this.formatFecha(t.fechaCierre as Date | null))}</td></tr>
-      <tr><th>Duración (h)</th><td>${escapeHtml(String(t.duracion ?? '—'))}</td></tr>
+      <tr><th>Duración</th><td>${escapeHtml(String(t.duracion ?? '—'))}</td></tr>
       <tr><th>Coord. apertura</th><td>${escapeHtml(String(t.latitudApertura ?? ''))}, ${escapeHtml(String(t.longitudApertura ?? ''))}</td></tr>
       <tr><th>Coord. cierre</th><td>${escapeHtml(String(t.latitudCierre ?? ''))}, ${escapeHtml(String(t.longitudCierre ?? ''))}</td></tr>
     </tbody>

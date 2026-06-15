@@ -29,6 +29,58 @@ export class MiTurnoActivoVehiculoDto {
   detalle: Record<string, unknown> | null;
 }
 
+export class MiTurnoUltimoTurnoDto {
+  @ApiPropertyOptional({
+    description: 'Fecha/hora de cierre del último turno cerrado (ISO 8601)',
+    example: '2026-06-09T18:30:00.000Z',
+    nullable: true,
+  })
+  fechaCierre: string | null;
+
+  @ApiPropertyOptional({ example: 'NU-7653-B', nullable: true })
+  placa: string | null;
+
+  @ApiPropertyOptional({ example: 'Volkswagen', nullable: true })
+  marca: string | null;
+
+  @ApiPropertyOptional({ example: 'Virtus', nullable: true })
+  modelo: string | null;
+
+  @ApiPropertyOptional({
+    description: 'Duración del turno (columna Turnos.Duracion, tipo TIME `HH:MM:SS`)',
+    example: '08:30:00',
+    nullable: true,
+  })
+  duracion: string | null;
+}
+
+export class MiTurnoUltimaIncidenciaAccidenteDto {
+  @ApiPropertyOptional({
+    description: 'Fecha/hora de registro (ISO 8601)',
+    example: '2026-06-08T14:22:00.000Z',
+    nullable: true,
+  })
+  fechaRegistro: string | null;
+
+  @ApiPropertyOptional({
+    example: 'Golpe en parachoques frontal',
+    nullable: true,
+  })
+  descripcion: string | null;
+}
+
+export class MiTurnoUltimaIncidenciaGasolinaDto {
+  @ApiPropertyOptional({
+    description: 'Fecha/hora de registro (ISO 8601)',
+    example: '2026-06-07T09:15:00.000Z',
+    nullable: true,
+  })
+  fechaRegistro: string | null;
+
+  @ApiPropertyOptional({ example: 45.5, nullable: true })
+  litrosCargados: number | null;
+}
+
 /** Respuesta de GET /api/turnos/mi-turno (turno en curso del usuario autenticado). */
 export class MiTurnoActivoResponseDto {
   @ApiProperty({
@@ -56,4 +108,28 @@ export class MiTurnoActivoResponseDto {
 
   @ApiPropertyOptional({ type: MiTurnoActivoVehiculoDto, nullable: true })
   vehiculo: MiTurnoActivoVehiculoDto | null;
+
+  @ApiPropertyOptional({
+    type: MiTurnoUltimoTurnoDto,
+    description:
+      'Último turno cerrado y finalizado del usuario (JWT): estatus 0, idEstatusTurno 3; fechaCierre, placa, marca, modelo y duración (TIME)',
+    nullable: true,
+  })
+  ultimoTurno: MiTurnoUltimoTurnoDto | null;
+
+  @ApiPropertyOptional({
+    type: MiTurnoUltimaIncidenciaAccidenteDto,
+    description:
+      'Última incidencia de accidente del usuario (JWT): fechaRegistro y descripcion',
+    nullable: true,
+  })
+  ultimaIncidenciaAccidente: MiTurnoUltimaIncidenciaAccidenteDto | null;
+
+  @ApiPropertyOptional({
+    type: MiTurnoUltimaIncidenciaGasolinaDto,
+    description:
+      'Última incidencia de gasolina del usuario (JWT): fechaRegistro y litrosCargados',
+    nullable: true,
+  })
+  ultimaIncidenciaGasolina: MiTurnoUltimaIncidenciaGasolinaDto | null;
 }

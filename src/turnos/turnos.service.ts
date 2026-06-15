@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, IsNull, Not, Repository } from 'typeorm';
 import { Turnos } from 'src/entities/Turnos';
 import { Vehiculos } from 'src/entities/Vehiculos';
 import { CatEstatusTurno } from 'src/entities/CatEstatusTurno';
@@ -34,7 +34,12 @@ import { UpdateTurnoDto } from './dto/update-turno.dto';
 import { CierreBitacoraVehiculoDto } from './dto/cierre-bitacora-vehiculo.dto';
 import { CrearIncidenciaAccidenteDto } from './dto/crear-incidencia-accidente.dto';
 import { CrearIncidenciaGasolinaDto } from './dto/crear-incidencia-gasolina.dto';
-import { MiTurnoActivoResponseDto } from './dto/mi-turno-activo.response';
+import {
+  MiTurnoActivoResponseDto,
+  MiTurnoUltimoTurnoDto,
+  MiTurnoUltimaIncidenciaAccidenteDto,
+  MiTurnoUltimaIncidenciaGasolinaDto,
+} from './dto/mi-turno-activo.response';
 import {
   EnumEstatusTurno,
   EstatusEnum,
@@ -44,6 +49,7 @@ import {
 import { S3Service } from 'src/s3/s3.service';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
+import { msToMysqlTime, normalizeMysqlTime } from 'src/common/mysql-time.util';
 import { loadTurnoDetalleSql } from './turnos-find-one-raw';
 import type { Request } from 'express';
 
@@ -199,7 +205,7 @@ export class TurnosService {
       longitudCierre: num(row.longitudCierre),
       latitudCierre: num(row.latitudCierre),
       fechaCierre: (row.fechaCierre as Date | null) ?? null,
-      duracion: num(row.duracion),
+      duracion: normalizeMysqlTime(row.duracion),
       estatus: num(row.estatus),
       idEstatusTurno: num(row.idEstatusTurno),
       fechaCreacion: (row.fechaCreacion as Date | null) ?? null,
@@ -234,7 +240,7 @@ export class TurnosService {
       longitudCierre: num(t.longitudCierre),
       latitudCierre: num(t.latitudCierre),
       fechaCierre: t.fechaCierre ?? null,
-      duracion: num(t.duracion),
+      duracion: normalizeMysqlTime(t.duracion),
       estatus: num(t.estatus),
       idEstatusTurno: num(t.idEstatusTurno),
       fechaCreacion: t.fechaCreacion ?? null,
@@ -1571,13 +1577,9 @@ export class TurnosService {
 
       const fechaCierre = new Date(Date.now());
       const apertura = turno.fechaApertura ? new Date(turno.fechaApertura) : null;
-      const duracionHoras =
+      const duracion =
         apertura != null && !Number.isNaN(apertura.getTime())
-          ? (fechaCierre.getTime() - apertura.getTime()) / (1000 * 60 * 60)
-          : null;
-      const duracionEnteraHoras =
-        duracionHoras != null && Number.isFinite(duracionHoras)
-          ? Math.round(duracionHoras)
+          ? msToMysqlTime(fechaCierre.getTime() - apertura.getTime())
           : null;
 
       const idVehiculoTurno = turno.idVehiculo;
@@ -1602,7 +1604,7 @@ export class TurnosService {
             longitudCierre: dto.longitud,
             evidenciaCierre: urlEvidencia,
             fechaCierre,
-            duracion: duracionEnteraHoras,
+            duracion,
             idBitacoraCierre: idBv,
           });
 
@@ -1623,7 +1625,7 @@ export class TurnosService {
           id: dto.idTurno,
           nombre: `Turno #${dto.idTurno} - ${placas}`,
           idBitacoraCierre: idBitacoraCierreNuevo,
-          duracion: duracionEnteraHoras,
+          duracion,
         },
       };
     } catch (error) {
@@ -1700,27 +1702,34 @@ export class TurnosService {
     idCliente: number,
     req: Request,
   ): Promise<MiTurnoActivoResponseDto> {
-    const vacio: MiTurnoActivoResponseDto = {
-      turnoActivo: false,
-      idTurno: null,
-      fechaInicio: null,
-      duracionSegundos: null,
-      vehiculo: null,
-    };
-
-    const turno = await this.repository.findOne({
-      where: {
-        idUsuario,
-        idCliente,
-        estatus: EstatusEnum.ACTIVO,
-        idEstatusTurno: EnumEstatusTurno.EN_CURSO,
-      },
-      relations: ['vehiculo'],
-      order: { fechaApertura: 'DESC' },
-    });
+    const [turno, ultimoTurno, ultimaIncidenciaAccidente, ultimaIncidenciaGasolina] =
+      await Promise.all([
+        this.repository.findOne({
+          where: {
+            idUsuario,
+            idCliente,
+            estatus: EstatusEnum.ACTIVO,
+            idEstatusTurno: EnumEstatusTurno.EN_CURSO,
+          },
+          relations: ['vehiculo'],
+          order: { fechaApertura: 'DESC' },
+        }),
+        this.findUltimoTurnoCerrado(idUsuario, idCliente, req),
+        this.findUltimaIncidenciaAccidente(idUsuario, idCliente),
+        this.findUltimaIncidenciaGasolina(idUsuario, idCliente),
+      ]);
 
     if (!turno?.fechaApertura) {
-      return vacio;
+      return {
+        turnoActivo: false,
+        idTurno: null,
+        fechaInicio: null,
+        duracionSegundos: null,
+        vehiculo: null,
+        ultimoTurno,
+        ultimaIncidenciaAccidente,
+        ultimaIncidenciaGasolina,
+      };
     }
 
     const inicioMs = new Date(turno.fechaApertura).getTime();
@@ -1756,6 +1765,121 @@ export class TurnosService {
           detalle: detalleNext,
         }
         : null,
+      ultimoTurno,
+      ultimaIncidenciaAccidente,
+      ultimaIncidenciaGasolina,
+    };
+  }
+
+
+  private async findUltimaIncidenciaAccidente(
+    idUsuario: number,
+    idCliente: number,
+  ): Promise<MiTurnoUltimaIncidenciaAccidenteDto | null> {
+    const incidencia = await this.incidenciaAccidenteRepository
+      .createQueryBuilder('ia')
+      .innerJoin('ia.turno', 't')
+      .where('t.idUsuario = :idUsuario', { idUsuario })
+      .andWhere('t.idCliente = :idCliente', { idCliente })
+      .andWhere('ia.estatus = :estatus', { estatus: EstatusEnum.ACTIVO })
+      .orderBy('ia.fechaRegistro', 'DESC')
+      .select(['ia.fechaRegistro', 'ia.descripcion'])
+      .getOne();
+
+    if (!incidencia) {
+      return null;
+    }
+    return {
+      fechaRegistro: incidencia.fechaRegistro
+        ? new Date(incidencia.fechaRegistro).toISOString()
+        : null,
+      descripcion: incidencia.descripcion?.trim() ?? null,
+    };
+  }
+
+  private async findUltimaIncidenciaGasolina(
+    idUsuario: number,
+    idCliente: number,
+  ): Promise<MiTurnoUltimaIncidenciaGasolinaDto | null> {
+    const incidencia = await this.incidenciaGasolinaRepository
+      .createQueryBuilder('ig')
+      .innerJoin('ig.turno', 't')
+      .where('t.idUsuario = :idUsuario', { idUsuario })
+      .andWhere('t.idCliente = :idCliente', { idCliente })
+      .andWhere('ig.estatus = :estatus', { estatus: EstatusEnum.ACTIVO })
+      .orderBy('ig.fechaRegistro', 'DESC')
+      .select(['ig.fechaRegistro', 'ig.litrosCargados'])
+      .getOne();
+
+    if (!incidencia) {
+      return null;
+    }
+
+    return {
+      fechaRegistro: incidencia.fechaRegistro
+        ? new Date(incidencia.fechaRegistro).toISOString()
+        : null,
+      litrosCargados:
+        incidencia.litrosCargados != null &&
+          Number.isFinite(Number(incidencia.litrosCargados))
+          ? Number(incidencia.litrosCargados)
+          : null,
+    };
+  }
+
+  private async findUltimoTurnoCerrado(
+    idUsuario: number,
+    idCliente: number,
+    req: Request,
+  ): Promise<MiTurnoUltimoTurnoDto | null> {
+    const turno = await this.repository.findOne({
+      where: {
+        idUsuario,
+        idCliente,
+        estatus: EstatusEnum.INACTIVO,
+        idEstatusTurno: EnumEstatusTurno.FINALIZADO,
+        fechaCierre: Not(IsNull()),
+      },
+      relations: ['vehiculo'],
+      order: { fechaCierre: 'DESC' },
+    });
+
+    if (!turno) {
+      return null;
+    }
+
+    const placa = turno.vehiculo?.placas?.trim() ?? null;
+    let marca: string | null = null;
+    let modelo: string | null = null;
+
+    if (placa) {
+      const proxy = await this.vehiculosService.findOneByPlaca(placa, req);
+      if (proxy.status >= 200 && proxy.status < 300) {
+        const payload = proxy.data as { data?: Record<string, unknown> };
+        const detalle = payload?.data;
+        if (detalle && typeof detalle === 'object') {
+          const marcaRaw = detalle['marcaNombre'] ?? detalle['marca'];
+          const modeloRaw = detalle['modeloNombre'] ?? detalle['modelo'];
+          marca =
+            marcaRaw != null && String(marcaRaw).trim()
+              ? String(marcaRaw).trim()
+              : null;
+          modelo =
+            modeloRaw != null && String(modeloRaw).trim()
+              ? String(modeloRaw).trim()
+              : null;
+        }
+      }
+    }
+
+    return {
+      fechaCierre: turno.fechaCierre
+        ? new Date(turno.fechaCierre).toISOString()
+        : null,
+      placa,
+      marca,
+      modelo,
+      duracion: normalizeMysqlTime(turno.duracion),
     };
   }
 

@@ -20,7 +20,7 @@ export const turnoFindOneOkExample = {
     longitudCierre: -99.133208,
     latitudCierre: 19.4326077,
     fechaCierre: null,
-    duracion: 0,
+    duracion: '02:15:30',
     estatus: 0,
     idEstatusTurno: 3,
     fechaCreacion: '2026-04-20T00:46:09.000Z',

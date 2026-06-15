@@ -1,4 +1,5 @@
 import { EstatusEnum } from 'src/common/estatus.enum';
+import { normalizeMysqlTime } from 'src/common/mysql-time.util';
 
 export type RawQueryFn = (
   sql: string,
@@ -450,7 +451,7 @@ function mapTurnoBasePlano(row: Record<string, unknown>): Record<string, unknown
     longitudCierre: num(row.longitudCierre),
     latitudCierre: num(row.latitudCierre),
     fechaCierre: row.fechaCierre ?? null,
-    duracion: num(row.duracion),
+    duracion: normalizeMysqlTime(row.duracion),
     estatus: num(row.estatus),
     idEstatusTurno: num(row.idEstatusTurno),
     fechaCreacion: row.fechaCreacion ?? null,

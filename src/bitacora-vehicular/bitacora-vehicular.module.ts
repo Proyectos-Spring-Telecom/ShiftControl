@@ -18,4 +18,4 @@ import { BitacoraVehicularService } from './bitacora-vehicular.service';
   controllers: [BitacoraVehicularController],
   providers: [BitacoraVehicularService],
 })
-export class BitacoraVehicularModule {}
+export class BitacoraVehicularModule { }

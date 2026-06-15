@@ -1111,7 +1111,9 @@ export class TurnosController {
       'Consulta el turno en curso del usuario autenticado (`IdUsuario` del JWT). ' +
       'Criterio: fila en `Turnos` con estatus activo y catálogo EN_CURSO. ' +
       'Devuelve si hay turno activo, datos del vehículo (sombra local + detalle Next por placa), ' +
-      'fecha de inicio y duración en segundos desde la apertura.',
+      'fecha de inicio y duración en segundos desde la apertura. ' +
+      'Incluye `ultimoTurno`: último turno finalizado del usuario (estatus 0, idEstatusTurno 3): fechaCierre, placa, marca, modelo y duración (TIME). ' +
+      'Incluye `ultimaIncidenciaAccidente` y `ultimaIncidenciaGasolina`: último registro activo de cada tabla del usuario.',
   })
   @ApiOkResponse({ type: MiTurnoActivoResponseDto })
   async findMiTurnoActivo(@Request() req): Promise<MiTurnoActivoResponseDto> {

@@ -91,8 +91,8 @@ export class Turnos {
   })
   fechaCierre: Date | null;
 
-  @Column('int', { name: 'Duracion', nullable: true })
-  duracion: number | null;
+  @Column('time', { name: 'Duracion', nullable: true })
+  duracion: string | null;
 
   @Column('tinyint', { name: 'Estatus', nullable: true })
   estatus: number | null;
