@@ -48,9 +48,11 @@ import {
 } from 'src/common/estatus.enum';
 import { S3Service } from 'src/s3/s3.service';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
+import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
 import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
 import { msToMysqlTime, normalizeMysqlTime } from 'src/common/mysql-time.util';
 import { loadTurnoDetalleSql } from './turnos-find-one-raw';
+import { buildDetalleTurnoView } from './turno-detalle-view.builder';
 import type { Request } from 'express';
 
 const UMBRAL_NIVEL_FLUIDO_BAJO = 25;
@@ -179,6 +181,7 @@ export class TurnosService {
     private readonly incidenciaGasolinaRepository: Repository<IncidenciaGasolina>,
     private readonly s3Service: S3Service,
     private readonly vehiculosService: VehiculosService,
+    private readonly endpointProxy: EndpointProxyService,
     private readonly tenantFilter: TenantFilterService,
   ) { }
 
@@ -1353,7 +1356,7 @@ export class TurnosService {
     }
   }
 
-  async findOne(id: number, idCliente: number) {
+  async findOne(id: number, idCliente: number, req: Request) {
     try {
       const data = await loadTurnoDetalleSql(
         (sql, params) => this.repository.query(sql, params),
@@ -1363,7 +1366,23 @@ export class TurnosService {
       if (!data) {
         throw new NotFoundException({ message: 'Turno no encontrado' });
       }
-      return { data };
+
+      const placa = String(data.placas ?? '').trim();
+      let vehiculoNext: Record<string, unknown> | null = null;
+      if (placa) {
+        const proxy = await this.vehiculosService.findOneByPlaca(placa, req);
+        if (proxy.status >= 200 && proxy.status < 300) {
+          const payload = proxy.data as { data?: unknown };
+          if (payload?.data && typeof payload.data === 'object') {
+            vehiculoNext = payload.data as Record<string, unknown>;
+          }
+        }
+      }
+
+      const operadorNombre = await this.tryOperadorNombre(req);
+      const detalleTurno = buildDetalleTurnoView(data, vehiculoNext, operadorNombre);
+
+      return { data, detalleTurno };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1372,6 +1391,33 @@ export class TurnosService {
         message: 'Error interno al buscar el turno',
         details: (error as Error).message,
       });
+    }
+  }
+
+  private async tryOperadorNombre(req: Request): Promise<string | null> {
+    try {
+      const r = await this.endpointProxy.forwardGet('login/me', req);
+      if (r.status < 200 || r.status >= 300) {
+        return null;
+      }
+      const data = r.data;
+      if (!data || typeof data !== 'object') {
+        return null;
+      }
+      const root = data as Record<string, unknown>;
+      const inner =
+        root.data && typeof root.data === 'object'
+          ? (root.data as Record<string, unknown>)
+          : root;
+      for (const key of ['nombreCompleto', 'nombre', 'Nombres', 'userName']) {
+        const value = inner[key];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+      return null;
+    } catch {
+      return null;
     }
   }
 
