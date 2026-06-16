@@ -9,6 +9,53 @@ import type { Request } from 'express';
 export class VehiculosService {
   private readonly logger = new Logger(VehiculosService.name);
 
+  /** Texto plano o `{ nombre }` desde payload Next (list, placa, detalle). */
+  private normalizeShadowText(
+    raw: unknown,
+    maxLen: number,
+    allowNestedNombre = false,
+  ): string | null | undefined {
+    if (raw === undefined) {
+      return undefined;
+    }
+    if (raw === null) {
+      return null;
+    }
+    if (typeof raw === 'string') {
+      const s = raw.trim().slice(0, maxLen);
+      return s.length > 0 ? s : null;
+    }
+    if (allowNestedNombre && typeof raw === 'object') {
+      const nombre = (raw as Record<string, unknown>)['nombre'];
+      if (typeof nombre === 'string') {
+        const s = nombre.trim().slice(0, maxLen);
+        return s.length > 0 ? s : null;
+      }
+      return null;
+    }
+    return undefined;
+  }
+
+  private pickCatalogNombre(
+    o: Record<string, unknown>,
+    flatKeys: string[],
+    nestedKeys: string[],
+  ): string | null | undefined {
+    for (const key of flatKeys) {
+      const value = this.normalizeShadowText(o[key], 45);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    for (const key of nestedKeys) {
+      const value = this.normalizeShadowText(o[key], 45, true);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    return undefined;
+  }
+
   /** URL de foto frontal desde payload Next (varias convenciones de nombre). */
   private pickFotoFrente(o: Record<string, unknown>): string | null | undefined {
     const raw =
@@ -16,7 +63,9 @@ export class VehiculosService {
       o['FotoFrente'] ??
       o['foto_frente'] ??
       o['fotoFrenteUrl'] ??
-      o['fotoFrenteURL'];
+      o['fotoFrenteURL'] ??
+      o['foto'] ??
+      o['Foto'];
     if (raw === undefined) return undefined;
     if (raw === null) return null;
     const s = String(raw).trim();
@@ -26,6 +75,39 @@ export class VehiculosService {
       return s.slice(0, 500);
     }
     return s;
+  }
+
+  private pickMarca(o: Record<string, unknown>): string | null | undefined {
+    return this.pickCatalogNombre(
+      o,
+      ['marcaNombre', 'MarcaNombre', 'Marca'],
+      ['marca'],
+    );
+  }
+
+  private pickModelo(o: Record<string, unknown>): string | null | undefined {
+    return this.pickCatalogNombre(
+      o,
+      ['modeloNombre', 'ModeloNombre', 'Modelo'],
+      ['modelo'],
+    );
+  }
+
+  private pickPlaca(o: Record<string, unknown>): string {
+    const raw = o['placa'] ?? o['placas'] ?? o['Placa'] ?? o['Placas'];
+    return raw != null ? String(raw).trim() : '';
+  }
+
+  private shadowFieldsFromNext(o: Record<string, unknown>): {
+    fotoFrente?: string | null;
+    marca?: string | null;
+    modelo?: string | null;
+  } {
+    return {
+      fotoFrente: this.pickFotoFrente(o),
+      marca: this.pickMarca(o),
+      modelo: this.pickModelo(o),
+    };
   }
 
   constructor(
@@ -80,13 +162,10 @@ export class VehiculosService {
       if (vehiculo && typeof vehiculo === 'object') {
         const vid = Number(vehiculo['id']);
         const idCliente = Number(vehiculo['idCliente']);
-        const placaRaw = (vehiculo['placa'] ?? vehiculo['placas']) as
-          | string
-          | undefined;
-        const placa = placaRaw != null ? String(placaRaw).trim() : '';
+        const placa = this.pickPlaca(vehiculo);
         if (Number.isFinite(vid) && vid > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          const fotoFrente = this.pickFotoFrente(vehiculo);
-          this.ensureShadow(vid, idCliente, placa, fotoFrente).catch((err) =>
+          const { fotoFrente, marca, modelo } = this.shadowFieldsFromNext(vehiculo);
+          this.ensureShadow(vid, idCliente, placa, fotoFrente, marca, modelo).catch((err) =>
             this.logger.warn(
               `Error creando sombra vehiculo ${id}: ${(err as Error).message}`,
             ),
@@ -114,10 +193,7 @@ export class VehiculosService {
       if (vehiculo && typeof vehiculo === 'object') {
         const vid = Number(vehiculo['id']);
         const idCliente = Number(vehiculo['idCliente']);
-        const placaRaw = (vehiculo['placa'] ?? vehiculo['placas']) as
-          | string
-          | undefined;
-        const placaNorm = placaRaw != null ? String(placaRaw).trim() : '';
+        const placaNorm = this.pickPlaca(vehiculo);
         if (
           Number.isFinite(vid) &&
           vid > 0 &&
@@ -125,8 +201,8 @@ export class VehiculosService {
           idCliente > 0 &&
           placaNorm
         ) {
-          const fotoFrente = this.pickFotoFrente(vehiculo);
-          this.ensureShadow(vid, idCliente, placaNorm, fotoFrente).catch((err) =>
+          const { fotoFrente, marca, modelo } = this.shadowFieldsFromNext(vehiculo);
+          this.ensureShadow(vid, idCliente, placaNorm, fotoFrente, marca, modelo).catch((err) =>
             this.logger.warn(
               `Error creando sombra vehiculo placa=${placa}: ${(err as Error).message}`,
             ),
@@ -147,6 +223,8 @@ export class VehiculosService {
     idCliente: number,
     placas: string,
     fotoFrente?: string | null,
+    marca?: string | null,
+    modelo?: string | null,
   ): Promise<void> {
     const placasNorm = placas.trim().slice(0, 10);
     if (!placasNorm) {
@@ -163,6 +241,8 @@ export class VehiculosService {
           idCliente,
           placas: placasNorm,
           fotoFrente: fotoFrente === undefined ? null : fotoFrente,
+          marca: marca === undefined ? null : marca,
+          modelo: modelo === undefined ? null : modelo,
         }),
       );
       this.logger.log(`Vehículo sombra creado id=${id} placas=${placasNorm}`);
@@ -177,6 +257,14 @@ export class VehiculosService {
     }
     if (fotoFrente !== undefined && existing.fotoFrente !== fotoFrente) {
       existing.fotoFrente = fotoFrente;
+      changed = true;
+    }
+    if (marca !== undefined && existing.marca !== marca) {
+      existing.marca = marca;
+      changed = true;
+    }
+    if (modelo !== undefined && existing.modelo !== modelo) {
+      existing.modelo = modelo;
       changed = true;
     }
     if (changed) {
@@ -207,11 +295,10 @@ export class VehiculosService {
         const o = v as Record<string, unknown>;
         const id = Number(o['id']);
         const idCliente = Number(o['idCliente']);
-        const placaRaw = (o['placa'] ?? o['placas']) as string | undefined;
-        const placa = placaRaw != null ? String(placaRaw).trim() : '';
+        const placa = this.pickPlaca(o);
         if (Number.isFinite(id) && id > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          const fotoFrente = this.pickFotoFrente(o);
-          await this.ensureShadow(id, idCliente, placa, fotoFrente);
+          const { fotoFrente, marca, modelo } = this.shadowFieldsFromNext(o);
+          await this.ensureShadow(id, idCliente, placa, fotoFrente, marca, modelo);
         }
       }
     }
@@ -255,11 +342,10 @@ export class VehiculosService {
         const o = v as Record<string, unknown>;
         const id = Number(o['id']);
         const idCliente = Number(o['idCliente']);
-        const placaRaw = (o['placa'] ?? o['placas']) as string | undefined;
-        const placa = placaRaw != null ? String(placaRaw).trim() : '';
+        const placa = this.pickPlaca(o);
         if (Number.isFinite(id) && id > 0 && Number.isFinite(idCliente) && idCliente > 0 && placa) {
-          const fotoFrente = this.pickFotoFrente(o);
-          await this.ensureShadow(id, idCliente, placa, fotoFrente);
+          const { fotoFrente, marca, modelo } = this.shadowFieldsFromNext(o);
+          await this.ensureShadow(id, idCliente, placa, fotoFrente, marca, modelo);
           count++;
         }
       }

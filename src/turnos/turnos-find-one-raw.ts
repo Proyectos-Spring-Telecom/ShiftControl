@@ -60,8 +60,7 @@ LEFT JOIN Vehiculos v ON v.Id = t.IdVehiculo
 LEFT JOIN CatEstatusTurno et ON et.Id = t.IDEstatusTurno
 LEFT JOIN Usuarios u ON u.Id = t.IdUsuario AND u.IdCliente = t.IdCliente
 LEFT JOIN Clientes c ON c.Id = t.IdCliente
-WHERE t.Id = ? AND t.IdCliente = ?
-LIMIT 1
+WHERE t.Id = ?
 `;
 
 /** Bitácora con tablero, testigos, fluidos, luces, accesorios y documentación en un solo JOIN. */
@@ -601,21 +600,30 @@ async function cargarBitacora(
 export async function loadTurnoDetalleSql(
   query: RawQueryFn,
   idTurno: number,
-  idCliente: number,
+  accessSql: string,
+  accessParams: unknown[],
 ): Promise<Record<string, unknown> | null> {
-  const turnoRows = await query(SQL_TURNO_MAESTRO, [idTurno, idCliente]);
+  const turnoRows = await query(
+    `${SQL_TURNO_MAESTRO}${accessSql} LIMIT 1`,
+    [idTurno, ...accessParams],
+  );
   const master = turnoRows[0] as Record<string, unknown> | undefined;
   if (!master) return null;
+
+  const idClienteTurno = num(master.idCliente);
+  if (idClienteTurno == null) {
+    return null;
+  }
 
   const idAper = num(master.idBitacoraApertura);
   const idCie = num(master.idBitacoraCierre);
 
   const [bitAper, bitCie, inspRows, accRows, gasRows] = await Promise.all([
-    cargarBitacora(query, idAper, idTurno, idCliente),
-    cargarBitacora(query, idCie, idTurno, idCliente),
+    cargarBitacora(query, idAper, idTurno, idClienteTurno),
+    cargarBitacora(query, idCie, idTurno, idClienteTurno),
     query(SQL_INSPECCIONES, [idTurno]),
-    query(SQL_INCIDENCIAS_ACCIDENTE, [idTurno, idCliente, EstatusEnum.ACTIVO]),
-    query(SQL_INCIDENCIAS_GASOLINA, [idTurno, idCliente, EstatusEnum.ACTIVO]),
+    query(SQL_INCIDENCIAS_ACCIDENTE, [idTurno, idClienteTurno, EstatusEnum.ACTIVO]),
+    query(SQL_INCIDENCIAS_GASOLINA, [idTurno, idClienteTurno, EstatusEnum.ACTIVO]),
   ]);
 
   return {

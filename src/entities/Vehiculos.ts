@@ -4,6 +4,7 @@ import { applySchema } from 'src/common/apply-schema.decorator';
 @applySchema
 @Index('UQ_Vehiculos_Placas', ['placas'], { unique: true })
 @Index('IX_Vehiculos_IdCliente', ['idCliente'])
+@Index('IX_Vehiculos_Placas', ['placas'])
 @Entity('Vehiculos')
 export class Vehiculos {
   @PrimaryColumn({ type: 'bigint', name: 'Id' })
@@ -33,4 +34,10 @@ export class Vehiculos {
 
   @Column('bigint', { name: 'IdVehiculoAuth', nullable: true })
   idVehiculoAuth: number | null;
+
+  @Column('varchar', { name: 'Marca', length: 45, nullable: true })
+  marca: string | null;
+
+  @Column('varchar', { name: 'Modelo', length: 45, nullable: true })
+  modelo: string | null;
 }

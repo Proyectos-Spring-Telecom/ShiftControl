@@ -48,7 +48,6 @@ async function bootstrap() {
     .addTag('Usuarios', 'Gestión de usuarios')
     .addTag('Cat Estatus Turno', 'Catálogo estatus de turno')
     .addTag('Cat Grado Severidad', 'Catálogo grado de severidad')
-    .addTag('Cat Partes Vehiculo Ex', 'Catálogo partes del vehículo')
     .addTag('Cat Tipo Daño', 'Catálogo tipo de daño')
     .addTag('Cat Vista Vehiculo', 'Catálogo vista del vehículo')
     .addTag('Vehiculos', 'Consulta y sombra de vehículos (proxy Next)')

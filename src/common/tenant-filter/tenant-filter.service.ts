@@ -2,9 +2,19 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Clientes } from 'src/entities/Clientes';
+import { EnumRolUsuario } from 'src/common/roles.enum';
 
-/** Roles que ven todo sin filtro de cliente. */
+/** Roles que ven todo sin filtro de cliente (GET turnos y filtro legacy). */
 const ROLES_SIN_FILTRO = new Set([1, 2]);
+
+/** Roles GET turnos: ven todos los registros. */
+const ROLES_TURNOS_TODOS = new Set([
+  EnumRolUsuario.SUPER_ADMIN,
+  EnumRolUsuario.DESARROLLADOR,
+  EnumRolUsuario.ADMIN_SISTEMA,
+  EnumRolUsuario.JEFE_MONITOREO,
+  EnumRolUsuario.MONITOREO,
+]);
 
 /** Roles que ven su cliente + hijos (spGetClientes). */
 const ROLES_CLIENTE_HIJOS = new Set([3, 4]);
@@ -58,6 +68,43 @@ export class TenantFilterService {
       params: [idCliente],
       sinAcceso: false,
     };
+  }
+
+  /**
+   * Filtro de lectura para GET del módulo Turnos según rol del JWT:
+   * - 1–5: todos los turnos
+   * - 6 (CLIENTE): turnos de su IdCliente
+   * - 7 (OPERADOR): turnos del IdUsuario del token
+   */
+  buildTurnosAccess(
+    rol: number,
+    idCliente: number,
+    idUsuario: number,
+    alias: string = 't',
+  ): TenantFragment {
+    const rolNum = Number(rol);
+
+    if (ROLES_TURNOS_TODOS.has(rolNum)) {
+      return { sql: '', params: [], sinAcceso: false };
+    }
+
+    if (rolNum === EnumRolUsuario.CLIENTE) {
+      return {
+        sql: ` AND ${alias}.IdCliente = ? `,
+        params: [idCliente],
+        sinAcceso: false,
+      };
+    }
+
+    if (rolNum === EnumRolUsuario.OPERADOR) {
+      return {
+        sql: ` AND ${alias}.IdUsuario = ? `,
+        params: [idUsuario],
+        sinAcceso: false,
+      };
+    }
+
+    return { sql: ' AND 1 = 0 ', params: [], sinAcceso: true };
   }
 
   /**

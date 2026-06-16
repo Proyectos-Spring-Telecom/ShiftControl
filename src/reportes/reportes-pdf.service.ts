@@ -76,7 +76,8 @@ export class ReportesPdfService {
     const turno = await loadTurnoDetalleSql(
       (sql, params) => this.turnosRepo.query(sql, params),
       idTurno,
-      idCliente,
+      ' AND t.IdCliente = ? ',
+      [idCliente],
     );
     if (!turno) {
       throw new NotFoundException({ message: 'Turno no encontrado' });

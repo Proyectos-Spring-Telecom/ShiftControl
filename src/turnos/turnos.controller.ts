@@ -9,6 +9,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   Request,
   UploadedFile,
   UploadedFiles,
@@ -25,6 +26,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -42,6 +44,7 @@ import { RegistrarDocumentacionBitacoraDto } from './dto/registrar-documentacion
 import { RegistrarAccesoriosBitacoraDto } from './dto/registrar-accesorios-bitacora.dto';
 import { RegistrarInspeccionVehiculoExBitacoraDto } from './dto/registrar-inspeccion-vehiculo-ex-bitacora.dto';
 import { MiTurnoActivoResponseDto } from './dto/mi-turno-activo.response';
+import { TurnosListQueryDto } from './dto/turnos-list-query.dto';
 import { turnoFindOneOkExample } from './examples/turno-find-one-ok.example';
 import { ApiCrudResponse, ApiResponseCommon } from 'src/common/ApiResponse';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
@@ -115,7 +118,7 @@ const TURNOS_INCIDENCIA_UPLOAD = {
 @Roles()
 @Controller('turnos')
 export class TurnosController {
-  constructor(private readonly turnosService: TurnosService) {}
+  constructor(private readonly turnosService: TurnosService) { }
 
   @Post()
   @Roles(EnumRolUsuario.OPERADOR)
@@ -1123,15 +1126,35 @@ export class TurnosController {
   }
 
   @Get('list')
-  @ApiOperation({ summary: 'Lista de turnos activos del cliente' })
-  async findAllList(@Request() req): Promise<ApiResponseCommon> {
+  @ApiOperation({
+    summary: 'Lista de turnos del cliente',
+    description:
+      'Devuelve turnos según rol del JWT: roles 1–5 todos; rol 6 solo su IdCliente; rol 7 solo su IdUsuario. ' +
+      'Ordenados por FechaApertura DESC. Filtro opcional `fechaDesde` / `fechaHasta` (YYYY-MM-DD).',
+  })
+  @ApiQuery({ name: 'fechaDesde', required: false, example: '2026-06-01' })
+  @ApiQuery({ name: 'fechaHasta', required: false, example: '2026-06-30' })
+  async findAllList(
+    @Request() req,
+    @Query() query: TurnosListQueryDto,
+  ): Promise<ApiResponseCommon> {
     const idCliente = req.user.idCliente;
     const rol = Number(req.user.rol);
-    return this.turnosService.findAllList(idCliente, rol);
+    return this.turnosService.findAllList(
+      idCliente,
+      rol,
+      Number(req.user.userId),
+      query.fechaDesde,
+      query.fechaHasta,
+    );
   }
 
   @Get(':page/:limit')
-  @ApiOperation({ summary: 'Lista paginada de turnos (todos)' })
+  @ApiOperation({
+    summary: 'Lista paginada de turnos (todos)',
+    description:
+      'Filtrado por rol del JWT: roles 1–5 ven todos; rol 6 solo su cliente; rol 7 solo sus turnos.',
+  })
   @ApiParam({ name: 'page' })
   @ApiParam({ name: 'limit' })
   async findAll(
@@ -1141,15 +1164,22 @@ export class TurnosController {
   ): Promise<ApiResponseCommon> {
     const idCliente = Number(req.user.idCliente);
     const rol = Number(req.user.rol);
-    return this.turnosService.findAll(idCliente, rol, page, limit);
+    return this.turnosService.findAll(
+      idCliente,
+      rol,
+      Number(req.user.userId),
+      page,
+      limit,
+    );
   }
-  
+
 
   @Get(':id')
   @ApiOperation({
     summary: 'Obtener turno por ID',
     description:
-      'Consultas SQL directas. Incluye `data` (detalle técnico completo) y `detalleTurno` (vista para pantalla Detalle de Turno: estado, empleado/vehículo, estado del vehículo, horario, odómetro, kilometraje y distancia recorrida). ' +
+      'Consultas SQL directas. Acceso por rol: 1–5 todos; rol 6 solo su cliente; rol 7 solo sus turnos. ' +
+      'Incluye `data` (detalle técnico) y `detalleTurno` (vista para pantalla Detalle de Turno). ' +
       'Ejemplo cURL: `GET /api/turnos/1` con cabecera `Authorization: Bearer <token>`.',
   })
   @ApiOkResponse({
@@ -1160,11 +1190,13 @@ export class TurnosController {
       },
     },
   })
-  @ApiNotFoundResponse({ description: 'Turno no encontrado para el cliente del token' })
+  @ApiNotFoundResponse({ description: 'Turno no encontrado o sin acceso para el rol del token' })
   @ApiParam({ name: 'id' })
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const idCliente = req.user.idCliente;
-    return this.turnosService.findOne(id, idCliente, req);
+    const idUsuario = Number(req.user.userId);
+    const rol = Number(req.user.rol);
+    return this.turnosService.findOne(id, idCliente, idUsuario, rol, req);
   }
 
 }

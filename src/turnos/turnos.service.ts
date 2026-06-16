@@ -215,6 +215,8 @@ export class TurnosService {
       fechaActualizacion: (row.fechaActualizacion as Date | null) ?? null,
       placas: (row.placas as string | null) ?? null,
       fotoFrente: (row.fotoFrente as string | null) ?? null,
+      marca: (row.marca as string | null) ?? null,
+      modelo: (row.modelo as string | null) ?? null,
       vehiculoId: num(row.vehiculoId),
       vehiculoIdCliente: num(row.vehiculoIdCliente),
       estatusTurnoId: num(row.etId),
@@ -1221,11 +1223,39 @@ export class TurnosService {
     }
   }
 
-  async findAllList(idCliente: number, rol: number): Promise<ApiResponseCommon> {
+  async findAllList(
+    idCliente: number,
+    rol: number,
+    idUsuario: number,
+    fechaDesde?: string,
+    fechaHasta?: string,
+  ): Promise<ApiResponseCommon> {
     try {
-      const tenant = await this.tenantFilter.build(rol, idCliente, 't');
-      if (tenant.sinAcceso) {
+      if (fechaDesde && fechaHasta && fechaDesde > fechaHasta) {
+        throw new BadRequestException(
+          'fechaDesde no puede ser posterior a fechaHasta',
+        );
+      }
+
+      const access = this.tenantFilter.buildTurnosAccess(
+        rol,
+        idCliente,
+        idUsuario,
+        't',
+      );
+      if (access.sinAcceso) {
         return { data: [] };
+      }
+
+      let dateSql = '';
+      const dateParams: unknown[] = [];
+      if (fechaDesde) {
+        dateSql += ' AND DATE(t.FechaApertura) >= ?';
+        dateParams.push(fechaDesde);
+      }
+      if (fechaHasta) {
+        dateSql += ' AND DATE(t.FechaApertura) <= ?';
+        dateParams.push(fechaHasta);
       }
 
       const sql = `
@@ -1251,6 +1281,8 @@ export class TurnosService {
         t.FechaActualizacion AS fechaActualizacion,
         v.Placas AS placas,
         v.FotoFrente AS fotoFrente,
+        v.Marca AS marca,
+        v.Modelo AS modelo,
         v.Id AS vehiculoId,
         v.IdCliente AS vehiculoIdCliente,
         et.Id AS etId,
@@ -1258,10 +1290,13 @@ export class TurnosService {
       FROM Turnos t
       LEFT JOIN Vehiculos v ON v.Id = t.IdVehiculo
       LEFT JOIN CatEstatusTurno et ON et.Id = t.IDEstatusTurno
-      WHERE t.Estatus = 1 ${tenant.sql}
+      WHERE 1 = 1 ${access.sql}${dateSql}
       ORDER BY t.FechaApertura DESC
     `;
-      const rows = await this.repository.query(sql, [...tenant.params]);
+      const rows = await this.repository.query(sql, [
+        ...access.params,
+        ...dateParams,
+      ]);
       const data = rows.map((item: Record<string, unknown>) => this.mapTurnoQueryRow(item));
       return { data };
     } catch (error) {
@@ -1275,12 +1310,18 @@ export class TurnosService {
   async findAll(
     idCliente: number,
     rol: number,
+    idUsuario: number,
     page: number,
     limit: number,
   ): Promise<ApiResponseCommon> {
     try {
-      const tenant = await this.tenantFilter.build(rol, idCliente, 't');
-      if (tenant.sinAcceso) {
+      const access = this.tenantFilter.buildTurnosAccess(
+        rol,
+        idCliente,
+        idUsuario,
+        't',
+      );
+      if (access.sinAcceso) {
         return {
           data: [],
           paginated: { total: 0, page, lastPage: 1 },
@@ -1319,19 +1360,19 @@ export class TurnosService {
       FROM Turnos t
       LEFT JOIN Vehiculos v ON v.Id = t.IdVehiculo
       LEFT JOIN CatEstatusTurno et ON et.Id = t.IDEstatusTurno
-      WHERE 1 = 1 ${tenant.sql}
+      WHERE 1 = 1 ${access.sql}
       ORDER BY t.FechaApertura DESC
       LIMIT ? OFFSET ?
     `;
       const sqlCount = `
       SELECT COUNT(*) AS total
       FROM Turnos t
-      WHERE 1 = 1 ${tenant.sql}
+      WHERE 1 = 1 ${access.sql}
     `;
 
       const [dataRows, totalResult] = await Promise.all([
-        this.repository.query(sqlData, [...tenant.params, limit, offset]),
-        this.repository.query(sqlCount, [...tenant.params]),
+        this.repository.query(sqlData, [...access.params, limit, offset]),
+        this.repository.query(sqlCount, [...access.params]),
       ]);
 
       const total = Number((totalResult[0] as { total?: unknown })?.total ?? 0);
@@ -1356,12 +1397,29 @@ export class TurnosService {
     }
   }
 
-  async findOne(id: number, idCliente: number, req: Request) {
+  async findOne(
+    id: number,
+    idCliente: number,
+    idUsuario: number,
+    rol: number,
+    req: Request,
+  ) {
     try {
+      const access = this.tenantFilter.buildTurnosAccess(
+        rol,
+        idCliente,
+        idUsuario,
+        't',
+      );
+      if (access.sinAcceso) {
+        throw new NotFoundException({ message: 'Turno no encontrado' });
+      }
+
       const data = await loadTurnoDetalleSql(
         (sql, params) => this.repository.query(sql, params),
         id,
-        idCliente,
+        access.sql,
+        access.params,
       );
       if (!data) {
         throw new NotFoundException({ message: 'Turno no encontrado' });
