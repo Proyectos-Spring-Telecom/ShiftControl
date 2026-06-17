@@ -1181,6 +1181,7 @@ export class TurnosController {
       'TypeORM. Verifica que el turno exista y devuelve sus datos con vehículo sombra, estatus, usuario y cliente. ' +
       'Incluye `vehiculoPlaca` (GET /api/vehiculos/placa/:placa), `usuarioDetalle` (GET /api/usuarios/:id) y ' +
       '`bitacoraResumen.inicio` / `bitacoraResumen.fin` (información general + imagen tablero vía idTablero de cada bitácora). ' +
+      '`data.incidenciasAccidente` e `data.incidenciasGasolina` (registros del turno por IdTurno, si existen). ' +
       'Ejemplo cURL: `GET /api/turnos/1` con cabecera `Authorization: Bearer <token>`.',
   })
   @ApiOkResponse({

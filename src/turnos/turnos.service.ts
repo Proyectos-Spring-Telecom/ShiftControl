@@ -339,6 +339,62 @@ export class TurnosService {
     };
   }
 
+  private mapIncidenciaAccidenteEntity(
+    ia: IncidenciaAccidente,
+  ): Record<string, unknown> {
+    const cat = ia.catTipoIncidente;
+    return {
+      id: Number(ia.id),
+      idTurno: ia.idTurno,
+      idCliente: ia.idCliente,
+      idVehiculo: ia.idVehiculo,
+      idCatTipoIncidente: ia.idCatTipoIncidente,
+      descripcion: ia.descripcion,
+      fotoEvidencia1: ia.fotoEvidencia1,
+      fotoEvidencia2: ia.fotoEvidencia2,
+      fotoEvidencia3: ia.fotoEvidencia3,
+      latitud: ia.latitud,
+      longitud: ia.longitud,
+      fechaRegistro: ia.fechaRegistro,
+      estatus: ia.estatus,
+      fechaCreacion: ia.fechaCreacion,
+      fechaActualizacion: ia.fechaActualizacion,
+      catTipoIncidente: cat
+        ? {
+            id: Number(cat.id),
+            nombre: cat.nombre,
+            estatus: cat.estatus,
+            fechaCreacion: cat.fechaCreacion,
+            fechaActualizacion: cat.fechaActualizacion,
+          }
+        : null,
+    };
+  }
+
+  private mapIncidenciaGasolinaEntity(
+    ig: IncidenciaGasolina,
+  ): Record<string, unknown> {
+    return {
+      id: Number(ig.id),
+      idTurno: ig.idTurno,
+      idCliente: ig.idCliente,
+      idVehiculo: ig.idVehiculo,
+      fotoTableroAntes: ig.fotoTableroAntes,
+      fotoTableroDespues: ig.fotoTableroDespues,
+      fotoBomba: ig.fotoBomba,
+      kilometraje: ig.kilometraje,
+      litrosCargados: ig.litrosCargados,
+      totalPagado: ig.totalPagado,
+      observaciones: ig.observaciones,
+      latitud: ig.latitud,
+      longitud: ig.longitud,
+      fechaRegistro: ig.fechaRegistro,
+      estatus: ig.estatus,
+      fechaCreacion: ig.fechaCreacion,
+      fechaActualizacion: ig.fechaActualizacion,
+    };
+  }
+
   /**
    * Sube un archivo a S3 si se envió. Retorna la URL o null.
    */
@@ -1495,7 +1551,14 @@ export class TurnosService {
         turno.idBitacoraCierre != null ? Number(turno.idBitacoraCierre) : null;
       const idTurno = Number(turno.id);
 
-      const [vehiculoPlaca, usuarioDetalle, inicio, fin] = await Promise.all([
+      const [
+        vehiculoPlaca,
+        usuarioDetalle,
+        inicio,
+        fin,
+        incidenciasAccidente,
+        incidenciasGasolina,
+      ] = await Promise.all([
         placa ? this.tryVehiculoPorPlaca(placa, req) : Promise.resolve(null),
         idUsuarioTurno != null
           ? this.tryUsuarioById(idUsuarioTurno, req)
@@ -1512,10 +1575,27 @@ export class TurnosService {
           idTurno,
           req,
         ),
+        this.incidenciaAccidenteRepository.find({
+          where: { idTurno },
+          relations: ['catTipoIncidente'],
+          order: { id: 'ASC' },
+        }),
+        this.incidenciaGasolinaRepository.find({
+          where: { idTurno },
+          order: { id: 'ASC' },
+        }),
       ]);
 
       return {
-        data: this.mapTurnoFindOneData(turno),
+        data: {
+          ...this.mapTurnoFindOneData(turno),
+          incidenciasAccidente: incidenciasAccidente.map((ia) =>
+            this.mapIncidenciaAccidenteEntity(ia),
+          ),
+          incidenciasGasolina: incidenciasGasolina.map((ig) =>
+            this.mapIncidenciaGasolinaEntity(ig),
+          ),
+        },
         vehiculoPlaca,
         usuarioDetalle,
         bitacoraResumen: { inicio, fin },
