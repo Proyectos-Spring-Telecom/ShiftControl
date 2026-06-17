@@ -51,11 +51,12 @@ import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
 import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
 import { msToMysqlTime, normalizeMysqlTime } from 'src/common/mysql-time.util';
-import { loadTurnoDetalleSql } from './turnos-find-one-raw';
-import { buildDetalleTurnoView } from './turno-detalle-view.builder';
+import { BitacoraVehicularService } from 'src/bitacora-vehicular/bitacora-vehicular.service';
+import type { InformacionGeneralResponse } from 'src/bitacora-vehicular/interfaces/informacion-general.response';
 import type { Request } from 'express';
 
-const UMBRAL_NIVEL_FLUIDO_BAJO = 25;
+/** Porcentaje mínimo acumulado: suma enviada debe alcanzar 80 % del máximo posible (n × 100). */
+const PORCENTAJE_MINIMO_SUMA_FLUIDOS = 80;
 
 function valoresFluidosDefinidos(dto: RegistrarNivelesFluidosBitacoraDto): number[] {
   const keys = [
@@ -73,6 +74,18 @@ function valoresFluidosDefinidos(dto: RegistrarNivelesFluidosBitacoraDto): numbe
     }
   }
   return out;
+}
+
+/** Estatus alerta (1) si la suma de niveles enviados no alcanza el 80 % del tope posible. */
+function fluidosRequierenAlerta(dto: RegistrarNivelesFluidosBitacoraDto): boolean {
+  const valores = valoresFluidosDefinidos(dto);
+  if (valores.length === 0) {
+    return false;
+  }
+  const suma = valores.reduce((acc, v) => acc + v, 0);
+  const maximoPosible = valores.length * 100;
+  const umbralMinimo = (maximoPosible * PORCENTAJE_MINIMO_SUMA_FLUIDOS) / 100;
+  return suma < umbralMinimo;
 }
 
 /** Campos de indicadores del DTO (excluye ids y bitácora) para regla de estatus de fila */
@@ -183,6 +196,7 @@ export class TurnosService {
     private readonly vehiculosService: VehiculosService,
     private readonly endpointProxy: EndpointProxyService,
     private readonly tenantFilter: TenantFilterService,
+    private readonly bitacoraVehicularService: BitacoraVehicularService,
   ) { }
 
   private normalizePlacaKey(value: string): string {
@@ -256,6 +270,72 @@ export class TurnosService {
       vehiculoIdCliente: v != null ? Number(v.idCliente) : null,
       estatusTurnoId: et != null ? Number(et.id) : null,
       estatusTurnoNombre: et?.nombre ?? null,
+    };
+  }
+
+  private mapTurnoFindOneData(turno: Turnos): Record<string, unknown> {
+    const vehiculo = turno.vehiculo;
+    const estatusTurno = turno.estatusTurno;
+    const usuario = turno.usuario;
+    const cliente = turno.cliente;
+
+    return {
+      id: Number(turno.id),
+      idVehiculo: turno.idVehiculo,
+      idCliente: turno.idCliente,
+      idUsuario: turno.idUsuario,
+      idBitacoraApertura: turno.idBitacoraApertura,
+      evidenciaApertura: turno.evidenciaApertura,
+      longitudApertura: turno.longitudApertura,
+      latitudApertura: turno.latitudApertura,
+      fechaApertura: turno.fechaApertura,
+      idBitacoraCierre: turno.idBitacoraCierre,
+      evidenciaCierre: turno.evidenciaCierre,
+      longitudCierre: turno.longitudCierre,
+      latitudCierre: turno.latitudCierre,
+      fechaCierre: turno.fechaCierre,
+      duracion: normalizeMysqlTime(turno.duracion),
+      estatus: turno.estatus,
+      idEstatusTurno: turno.idEstatusTurno,
+      fechaCreacion: turno.fechaCreacion,
+      fechaActualizacion: turno.fechaActualizacion,
+      vehiculo: vehiculo
+        ? {
+          id: Number(vehiculo.id),
+          idCliente: vehiculo.idCliente,
+          placas: vehiculo.placas,
+          fotoFrente: vehiculo.fotoFrente,
+          marca: vehiculo.marca,
+          modelo: vehiculo.modelo,
+          fechaCreacion: vehiculo.fechaCreacion,
+          fechaActualizacion: vehiculo.fechaActualizacion,
+        }
+        : null,
+      estatusTurno: estatusTurno
+        ? {
+          id: Number(estatusTurno.id),
+          nombre: estatusTurno.nombre,
+          estatus: estatusTurno.estatus,
+          fechaCreacion: estatusTurno.fechaCreacion,
+          fechaActualizacion: estatusTurno.fechaActualizacion,
+        }
+        : null,
+      usuario: usuario
+        ? {
+          id: Number(usuario.id),
+          idCliente: usuario.idCliente,
+          idRol: usuario.idRol,
+          idSolucion: usuario.idSolucion,
+          idClienteGeneral: usuario.idClienteGeneral,
+          idFaceAuth: usuario.idFaceAuth,
+        }
+        : null,
+      cliente: cliente
+        ? {
+          id: Number(cliente.id),
+          idPadre: cliente.idPadre,
+        }
+        : null,
     };
   }
 
@@ -863,9 +943,7 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const estatusFila = valoresFluidosDefinidos(dto).some(
-        (n) => n < UMBRAL_NIVEL_FLUIDO_BAJO,
-      )
+      const estatusFila = fluidosRequierenAlerta(dto)
         ? EstatusEnum.ACTIVO
         : EstatusEnum.INACTIVO;
 
@@ -1397,50 +1475,51 @@ export class TurnosService {
     }
   }
 
-  async findOne(
-    id: number,
-    idCliente: number,
-    idUsuario: number,
-    rol: number,
-    req: Request,
-  ) {
+  async findOne(id: number, idCliente: number, req: Request) {
     try {
-      const access = this.tenantFilter.buildTurnosAccess(
-        rol,
-        idCliente,
-        idUsuario,
-        't',
-      );
-      if (access.sinAcceso) {
+      const turno = await this.repository.findOne({
+        where: { id },
+        relations: ['vehiculo', 'estatusTurno', 'usuario', 'cliente'],
+      });
+      if (!turno) {
         throw new NotFoundException({ message: 'Turno no encontrado' });
       }
 
-      const data = await loadTurnoDetalleSql(
-        (sql, params) => this.repository.query(sql, params),
-        id,
-        access.sql,
-        access.params,
-      );
-      if (!data) {
-        throw new NotFoundException({ message: 'Turno no encontrado' });
-      }
+      const placa = turno.vehiculo?.placas?.trim() ?? '';
+      const idUsuarioTurno =
+        turno.idUsuario != null ? Number(turno.idUsuario) : null;
+      const idClienteBitacora = turno.idCliente ?? idCliente;
+      const idBitacoraApertura =
+        turno.idBitacoraApertura != null ? Number(turno.idBitacoraApertura) : null;
+      const idBitacoraCierre =
+        turno.idBitacoraCierre != null ? Number(turno.idBitacoraCierre) : null;
+      const idTurno = Number(turno.id);
 
-      const placa = String(data.placas ?? '').trim();
-      let vehiculoNext: Record<string, unknown> | null = null;
-      if (placa) {
-        const proxy = await this.vehiculosService.findOneByPlaca(placa, req);
-        if (proxy.status >= 200 && proxy.status < 300) {
-          const payload = proxy.data as { data?: unknown };
-          if (payload?.data && typeof payload.data === 'object') {
-            vehiculoNext = payload.data as Record<string, unknown>;
-          }
-        }
-      }
+      const [vehiculoPlaca, usuarioDetalle, inicio, fin] = await Promise.all([
+        placa ? this.tryVehiculoPorPlaca(placa, req) : Promise.resolve(null),
+        idUsuarioTurno != null
+          ? this.tryUsuarioById(idUsuarioTurno, req)
+          : Promise.resolve(null),
+        this.tryBitacoraResumen(
+          idBitacoraApertura,
+          idClienteBitacora,
+          idTurno,
+          req,
+        ),
+        this.tryBitacoraResumen(
+          idBitacoraCierre,
+          idClienteBitacora,
+          idTurno,
+          req,
+        ),
+      ]);
 
-      const operadorNombre = await this.tryOperadorNombre(req);
-      const detalleTurno = buildDetalleTurnoView(data, vehiculoNext, operadorNombre);
-
-      return { data, detalleTurno };
+      return {
+        data: this.mapTurnoFindOneData(turno),
+        vehiculoPlaca,
+        usuarioDetalle,
+        bitacoraResumen: { inicio, fin },
+      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1452,31 +1531,122 @@ export class TurnosService {
     }
   }
 
-  private async tryOperadorNombre(req: Request): Promise<string | null> {
+  private async tryBitacoraResumen(
+    idBitacoraVehiculo: number | null,
+    idCliente: number,
+    idTurno: number,
+    req: Request,
+  ): Promise<{
+    informacionGeneral: InformacionGeneralResponse['informacionGeneral'] | null;
+    tablero: {
+      id: number;
+      fotoTablero: string | null;
+      kmActual: number | null;
+    } | null;
+  } | null> {
+    if (idBitacoraVehiculo == null) {
+      return null;
+    }
+
+    const [informacionGeneral, bitacora] = await Promise.all([
+      this.tryBitacoraInformacionGeneral(idBitacoraVehiculo, idCliente, req),
+      this.bitacoraRepository.findOne({
+        where: { id: idBitacoraVehiculo, idTurno, idCliente },
+        relations: ['tablero'],
+      }),
+    ]);
+
+    const tablero = this.mapTableroResumen(bitacora?.tablero);
+
+    if (!informacionGeneral && !tablero) {
+      return null;
+    }
+
+    return { informacionGeneral, tablero };
+  }
+
+  private mapTableroResumen(
+    tablero: Tablero | null | undefined,
+  ): { id: number; fotoTablero: string | null; kmActual: number | null } | null {
+    if (!tablero) {
+      return null;
+    }
+    return {
+      id: Number(tablero.id),
+      fotoTablero: tablero.fotoTablero,
+      kmActual: tablero.kmActual,
+    };
+  }
+
+  private async tryBitacoraInformacionGeneral(
+    idBitacoraVehiculo: number | null,
+    idCliente: number,
+    req: Request,
+  ): Promise<InformacionGeneralResponse['informacionGeneral'] | null> {
+    if (idBitacoraVehiculo == null) {
+      return null;
+    }
     try {
-      const r = await this.endpointProxy.forwardGet('login/me', req);
+      const res = await this.bitacoraVehicularService.obtenerInformacionGeneral(
+        idBitacoraVehiculo,
+        idCliente,
+        req,
+      );
+      return res.informacionGeneral;
+    } catch {
+      return null;
+    }
+  }
+
+  private async tryVehiculoPorPlaca(
+    placa: string,
+    req: Request,
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const r = await this.vehiculosService.findOneByPlaca(placa, req);
       if (r.status < 200 || r.status >= 300) {
         return null;
       }
-      const data = r.data;
-      if (!data || typeof data !== 'object') {
-        return null;
-      }
-      const root = data as Record<string, unknown>;
-      const inner =
-        root.data && typeof root.data === 'object'
-          ? (root.data as Record<string, unknown>)
-          : root;
-      for (const key of ['nombreCompleto', 'nombre', 'Nombres', 'userName']) {
-        const value = inner[key];
-        if (typeof value === 'string' && value.trim()) {
-          return value.trim();
-        }
+      const payload = r.data as { data?: Record<string, unknown> };
+      const vehiculo = payload?.data;
+      if (vehiculo && typeof vehiculo === 'object') {
+        return vehiculo;
       }
       return null;
     } catch {
       return null;
     }
+  }
+
+  private async tryUsuarioById(
+    idUsuario: number,
+    req: Request,
+  ): Promise<Record<string, unknown> | null> {
+    try {
+      const r = await this.endpointProxy.forwardGet(`usuarios/${idUsuario}`, req);
+      if (r.status < 200 || r.status >= 300) {
+        return null;
+      }
+      const root = r.data as { data?: { usuario?: unknown[] } };
+      const usuarioArr = root?.data?.usuario;
+      if (
+        !Array.isArray(usuarioArr) ||
+        usuarioArr[0] == null ||
+        typeof usuarioArr[0] !== 'object'
+      ) {
+        return null;
+      }
+      return this.omitPermisosUsuario(usuarioArr[0] as Record<string, unknown>);
+    } catch {
+      return null;
+    }
+  }
+
+  private omitPermisosUsuario(
+    usuario: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const { permiso, permisos, ...rest } = usuario;
+    return rest;
   }
 
   /**

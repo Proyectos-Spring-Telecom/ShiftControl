@@ -555,7 +555,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar niveles de fluidos (bitácora en turno en curso)',
     description:
-      'JSON: idBitacoraVehiculo y niveles opcionales (gasolina, aceite, bateria, anticongelante, liquidoFrenos). idTurno e idVehiculo desde la bitácora. Si algún valor enviado es menor a 25, estatus de fila = 1 (ACTIVO); si no, 0. Enlaza BitacoraVehiculo.IdNivelesFluidos.',
+      'JSON: idBitacoraVehiculo y niveles opcionales (gasolina, aceite, bateria, anticongelante, liquidoFrenos). idTurno e idVehiculo desde la bitácora. Si la suma de los valores enviados no alcanza el 80 % del máximo posible (n × 100), estatus de fila = 1 (ACTIVO); si no, 0. Enlaza BitacoraVehiculo.IdNivelesFluidos.',
   })
   @ApiBody({ type: RegistrarNivelesFluidosBitacoraDto })
   @ApiResponse({
@@ -1178,8 +1178,9 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Obtener turno por ID',
     description:
-      'Consultas SQL directas. Acceso por rol: 1–5 todos; rol 6 solo su cliente; rol 7 solo sus turnos. ' +
-      'Incluye `data` (detalle técnico) y `detalleTurno` (vista para pantalla Detalle de Turno). ' +
+      'TypeORM. Verifica que el turno exista y devuelve sus datos con vehículo sombra, estatus, usuario y cliente. ' +
+      'Incluye `vehiculoPlaca` (GET /api/vehiculos/placa/:placa), `usuarioDetalle` (GET /api/usuarios/:id) y ' +
+      '`bitacoraResumen.inicio` / `bitacoraResumen.fin` (información general + imagen tablero vía idTablero de cada bitácora). ' +
       'Ejemplo cURL: `GET /api/turnos/1` con cabecera `Authorization: Bearer <token>`.',
   })
   @ApiOkResponse({
@@ -1190,13 +1191,11 @@ export class TurnosController {
       },
     },
   })
-  @ApiNotFoundResponse({ description: 'Turno no encontrado o sin acceso para el rol del token' })
+  @ApiNotFoundResponse({ description: 'Turno no encontrado para el cliente del token' })
   @ApiParam({ name: 'id' })
   async findOne(@Param('id', ParseIntPipe) id: number, @Request() req) {
     const idCliente = req.user.idCliente;
-    const idUsuario = Number(req.user.userId);
-    const rol = Number(req.user.rol);
-    return this.turnosService.findOne(id, idCliente, idUsuario, rol, req);
+    return this.turnosService.findOne(id, idCliente, req);
   }
 
 }

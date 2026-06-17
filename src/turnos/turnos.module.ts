@@ -20,6 +20,7 @@ import { S3Module } from 'src/s3/s3.module';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
 import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.module';
+import { BitacoraVehicularModule } from 'src/bitacora-vehicular/bitacora-vehicular.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.modul
     EndpointProxyModule,
     VehiculosModule,
     TenantFilterModule,
+    BitacoraVehicularModule,
   ],
   controllers: [TurnosController],
   providers: [TurnosService],
