@@ -8,6 +8,8 @@ import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
 import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.module';
 import { MailModule } from 'src/mail/mail.module';
+import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
+import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
 import { ReportesController } from './reportes.controller';
 import { ReportesPdfService } from './reportes-pdf.service';
 import { PuppeteerPdfService } from './puppeteer-pdf.service';
@@ -24,6 +26,8 @@ import { PuppeteerPdfService } from './puppeteer-pdf.service';
     ]),
     TenantFilterModule,
     MailModule,
+    EndpointProxyModule,
+    VehiculosModule,
   ],
   controllers: [ReportesController],
   providers: [ReportesPdfService, PuppeteerPdfService],

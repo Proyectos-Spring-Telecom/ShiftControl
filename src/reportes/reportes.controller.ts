@@ -7,7 +7,7 @@ import {
   ParseIntPipe,
   Post,
   Query,
-  Request,
+  Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
@@ -21,7 +21,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { Response, Request } from 'express';
 import { JwtAuthQueryGuard } from 'src/guard/jwt-auth-query.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
 import { Roles } from 'src/common/decorators/roles.decorator';
@@ -30,6 +30,8 @@ import { ReportesPdfService } from './reportes-pdf.service';
 import { PuppeteerPdfService } from './puppeteer-pdf.service';
 import { FiltroReporteVehiculoDto } from './dto/filtro-reporte-vehiculo.dto';
 import { EnviarReporteTurnoDto, EnviarReporteVehiculoDto } from './dto/enviar-reporte.dto';
+
+type AuthenticatedRequest = Request & { user: { idCliente: number } };
 
 function escHtmlEmail(s: string): string {
   return String(s)
@@ -63,10 +65,10 @@ export class ReportesController {
   async enviarReporteTurno(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: EnviarReporteTurnoDto,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
   ): Promise<{ status: string; message: string }> {
     const idCliente = Number(req.user.idCliente);
-    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente);
+    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente, req);
     const html = this.reportesPdfService.generarHtmlTurno(data);
     const pdfBuffer = await this.puppeteerPdfService.convertir(html);
     if (!pdfBuffer?.length) {
@@ -141,13 +143,13 @@ export class ReportesController {
   async enviarReporteVehiculo(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: EnviarReporteVehiculoDto,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
   ): Promise<{ status: string; message: string }> {
     const idCliente = Number(req.user.idCliente);
     const fi = dto.fechaInicio ? new Date(dto.fechaInicio) : undefined;
     const ff = dto.fechaFin ? new Date(dto.fechaFin) : undefined;
 
-    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, fi, ff);
+    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, req, fi, ff);
     const html = this.reportesPdfService.generarHtmlVehiculo(data);
     const pdfBuffer = await this.puppeteerPdfService.convertir(html);
     if (!pdfBuffer?.length) {
@@ -217,7 +219,12 @@ export class ReportesController {
   }
 
   @Get('turno/:id/html')
-  @ApiOperation({ summary: 'Vista previa HTML — reporte de turno' })
+  @ApiOperation({
+    summary: 'Vista previa HTML — reporte de turno',
+    description:
+      'Datos vía TypeORM (turno, bitácoras, incidencias, inspecciones). ' +
+      'Vehículo y operador enriquecidos con GET /api/vehiculos/placa/:placa y GET /api/usuarios/:id (Next).',
+  })
   @ApiParam({ name: 'id', description: 'ID del turno' })
   @ApiQuery({
     name: 'token',
@@ -230,18 +237,23 @@ export class ReportesController {
   @ApiResponse({ status: 404, description: 'Turno no encontrado' })
   async reporteTurnoHtml(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     const idCliente = Number(req.user.idCliente);
-    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente);
+    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente, req);
     const reportHtml = this.reportesPdfService.generarHtmlTurno(data);
     res.set({ 'Content-Type': 'text/html; charset=utf-8' });
     res.send(reportHtml);
   }
 
   @Get('turno/:id')
-  @ApiOperation({ summary: 'Descargar PDF — reporte de turno' })
+  @ApiOperation({
+    summary: 'Descargar PDF — reporte de turno',
+    description:
+      'Datos vía TypeORM (turno, bitácoras, incidencias, inspecciones). ' +
+      'Vehículo y operador enriquecidos con GET /api/vehiculos/placa/:placa y GET /api/usuarios/:id (Next).',
+  })
   @ApiParam({ name: 'id', description: 'ID del turno' })
   @ApiQuery({
     name: 'token',
@@ -254,11 +266,11 @@ export class ReportesController {
   @ApiResponse({ status: 404, description: 'Turno no encontrado' })
   async reporteTurno(
     @Param('id', ParseIntPipe) id: number,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     const idCliente = Number(req.user.idCliente);
-    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente);
+    const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente, req);
     const reportHtml = this.reportesPdfService.generarHtmlTurno(data);
     const pdfBuffer = await this.puppeteerPdfService.convertir(reportHtml);
     res.set({
@@ -270,7 +282,11 @@ export class ReportesController {
   }
 
   @Get('vehiculo/:id/html')
-  @ApiOperation({ summary: 'Vista previa HTML — reporte de vehículo' })
+  @ApiOperation({
+    summary: 'Vista previa HTML — reporte de vehículo',
+    description:
+      'Turnos e incidencias vía TypeORM. Detalle del vehículo enriquecido con GET /api/vehiculos/placa/:placa (Next).',
+  })
   @ApiParam({ name: 'id', description: 'ID del vehículo (sombra)' })
   @ApiQuery({
     name: 'token',
@@ -286,20 +302,24 @@ export class ReportesController {
   async reporteVehiculoHtml(
     @Param('id', ParseIntPipe) id: number,
     @Query() query: FiltroReporteVehiculoDto,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     const idCliente = Number(req.user.idCliente);
     const fi = query.fechaInicio ? new Date(query.fechaInicio) : undefined;
     const ff = query.fechaFin ? new Date(query.fechaFin) : undefined;
-    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, fi, ff);
+    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, req, fi, ff);
     const reportHtml = this.reportesPdfService.generarHtmlVehiculo(data);
     res.set({ 'Content-Type': 'text/html; charset=utf-8' });
     res.send(reportHtml);
   }
 
   @Get('vehiculo/:id')
-  @ApiOperation({ summary: 'Descargar PDF — reporte de vehículo' })
+  @ApiOperation({
+    summary: 'Descargar PDF — reporte de vehículo',
+    description:
+      'Turnos e incidencias vía TypeORM. Detalle del vehículo enriquecido con GET /api/vehiculos/placa/:placa (Next).',
+  })
   @ApiParam({ name: 'id', description: 'ID del vehículo (sombra)' })
   @ApiQuery({
     name: 'token',
@@ -315,13 +335,13 @@ export class ReportesController {
   async reporteVehiculo(
     @Param('id', ParseIntPipe) id: number,
     @Query() query: FiltroReporteVehiculoDto,
-    @Request() req: { user: { idCliente: number } },
+    @Req() req: AuthenticatedRequest,
     @Res() res: Response,
   ): Promise<void> {
     const idCliente = Number(req.user.idCliente);
     const fi = query.fechaInicio ? new Date(query.fechaInicio) : undefined;
     const ff = query.fechaFin ? new Date(query.fechaFin) : undefined;
-    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, fi, ff);
+    const data = await this.reportesPdfService.obtenerDatosVehiculo(id, idCliente, req, fi, ff);
     const reportHtml = this.reportesPdfService.generarHtmlVehiculo(data);
     const pdfBuffer = await this.puppeteerPdfService.convertir(reportHtml);
     res.set({

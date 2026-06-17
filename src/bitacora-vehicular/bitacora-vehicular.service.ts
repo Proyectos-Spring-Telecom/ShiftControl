@@ -71,9 +71,13 @@ export class BitacoraVehicularService {
     }
 
     const placaSombra = bitacora.vehiculo?.placas?.trim() ?? '';
+    const idUsuarioTurno =
+      bitacora.turno?.idUsuario != null ? Number(bitacora.turno.idUsuario) : null;
     const [vehiculoNext, operador, estadoVehiculo, ubicacion] = await Promise.all([
       this.tryVehiculoPorPlaca(placaSombra, req),
-      this.tryOperador(req),
+      idUsuarioTurno != null
+        ? this.tryOperadorPorIdUsuario(idUsuarioTurno, req)
+        : Promise.resolve(null),
       this.buildEstadoVehiculo(bitacora, idBitacoraVehiculo),
       this.buildUbicacion(bitacora.turno),
     ]);
@@ -118,48 +122,57 @@ export class BitacoraVehicularService {
     }
   }
 
-  private async tryOperador(
+  private async tryOperadorPorIdUsuario(
+    idUsuario: number,
     req: Request,
   ): Promise<{ nombre: string; id: string } | null> {
     try {
-      const r = await this.endpointProxy.forwardGet('login/me', req);
+      const r = await this.endpointProxy.forwardGet(`usuarios/${idUsuario}`, req);
       if (r.status < 200 || r.status >= 300) {
         return null;
       }
-      return this.pickOperador(r.data);
+      const root = r.data as { data?: { usuario?: unknown[] } };
+      const usuarioArr = root?.data?.usuario;
+      if (
+        !Array.isArray(usuarioArr) ||
+        usuarioArr[0] == null ||
+        typeof usuarioArr[0] !== 'object'
+      ) {
+        return null;
+      }
+      return this.pickOperadorFromUsuarioNext(
+        usuarioArr[0] as Record<string, unknown>,
+      );
     } catch (err) {
-      this.logger.warn(`login/me omitido: ${(err as Error).message}`);
+      this.logger.warn(
+        `usuarios/${idUsuario} omitido: ${(err as Error).message}`,
+      );
       return null;
     }
   }
 
-  private unwrapMeData(data: unknown): Record<string, unknown> | null {
-    if (!data || typeof data !== 'object') {
-      return null;
-    }
-    const root = data as Record<string, unknown>;
-    if (root.data && typeof root.data === 'object') {
-      return root.data as Record<string, unknown>;
-    }
-    return root;
-  }
+  private pickOperadorFromUsuarioNext(
+    usuario: Record<string, unknown>,
+  ): { nombre: string; id: string } | null {
+    const nombreParts = [
+      usuario['nombre'],
+      usuario['apellidoPaterno'],
+      usuario['apellidoMaterno'],
+    ]
+      .filter((v) => typeof v === 'string' && v.trim())
+      .map((v) => String(v).trim());
 
-  private pickOperador(data: unknown): { nombre: string; id: string } | null {
-    const inner = this.unwrapMeData(data);
-    if (!inner) {
-      return null;
-    }
+    let nombre: string | null =
+      nombreParts.length > 0 ? nombreParts.join(' ') : null;
 
-    let nombre: string | null = null;
-    for (const key of ['nombreCompleto', 'nombre', 'Nombres', 'userName']) {
-      const value = inner[key];
-      if (typeof value === 'string' && value.trim()) {
-        nombre = value.trim();
-        break;
+    if (!nombre) {
+      const userName = usuario['userName'];
+      if (typeof userName === 'string' && userName.trim()) {
+        nombre = userName.trim();
       }
     }
 
-    const idRaw = inner['id'];
+    const idRaw = usuario['id'];
     const id =
       idRaw != null && String(idRaw).trim() !== ''
         ? `ID: ${String(idRaw).trim()}`
