@@ -51,7 +51,7 @@ export class ReportesController {
     private readonly reportesPdfService: ReportesPdfService,
     private readonly puppeteerPdfService: PuppeteerPdfService,
     private readonly mailService: MailService,
-  ) {}
+  ) { }
 
   @Post('turno/:id/enviar')
   @ApiOperation({
@@ -79,6 +79,7 @@ export class ReportesController {
     const placas = escHtmlEmail(placasRaw);
     const asunto = dto.asunto ?? `Reporte de Turno #${id} — ${placasRaw}`;
     const nombreArchivo = `reporte-turno-${id}.pdf`;
+
 
     const emailHtml = `
 <!DOCTYPE html>
