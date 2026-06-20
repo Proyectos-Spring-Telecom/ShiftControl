@@ -78,43 +78,70 @@ export class ReportesController {
     const placasRaw = String((data.turno['placas'] as string | undefined) ?? 'N/A');
     const placas = escHtmlEmail(placasRaw);
     const asunto = dto.asunto ?? `Reporte de Turno #${id} — ${placasRaw}`;
-    const nombreArchivo = `reporte-turno-${id}.pdf`;
+    const nombreArchivo = `reporte-turno-folio-${id}-${placas}.pdf`;
 
 
     const emailHtml = `
 <!DOCTYPE html>
-<html lang="es">
-<head><meta charset="UTF-8"></head>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reporte Turno</title>
+</head>
 <body style="font-family: 'Open Sans', sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0">
-    <tr><td align="center">
-      <table width="550px" style="background-color: #FFFFFF; border-radius: 13px; box-shadow: rgba(100,100,111,0.2) 0px 7px 29px 0px;" cellpadding="0" cellspacing="0">
+    <table width="100%" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="background-color: #1a1a2e; color: #FFFFFF; padding: 1.5rem;" align="center">
-            <h2 style="margin: 0; font-size: 22px;">ShiftControl</h2>
-          </td>
+            <td align="center">
+                <table width="550px" style="background-color: #FFFFFF; border-radius: 13px; box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;" cellpadding="0" cellspacing="0">
+                    <!-- Header -->
+                    <tr>
+                        <td  style="background-color: #1a1a2e; color: #FFFFFF; padding: 1rem; ">
+                            <a href="#">
+                                <img src="https://springtelecom.mx/assets/img/sitio_spring_white.png" alt="logo" style="height: 40px;">
+                            </a>
+                        </td>
+                    </tr>
+                    <!-- Body -->
+                    <tr>
+                        <td  style="padding: 0 2rem; "  align="center">
+                            <h5 style="color: #1a1a2e; font-size: 30px; text-align:center">
+                                Reporte de Turno
+                            </h5>
+                            <p style="color: #1a1a2e; font-family: 'Open Sans', sans-serif; font-size: 16px; text-align: center; margin-top: -30px;">Se adjunta el reporte del turno con placas <strong>${placas}</strong>. Abre el archivo PDF adjunto para ver el detalle del turno completado.</p>
+                        </td>
+                    </tr>
+                    <!-- Divider -->
+                    <tr><td  style="padding: 0 2rem; "><hr style="border: none; height: 2px; background-color: rgba(226, 226, 226, 0.589); margin-top: 25px;"></td></tr>
+                    <tr>
+                        <td  style="padding: 0 2rem; "><br>
+                            <p style="margin: 0; font-size: 16px; font-family: 'Open Sans', sans-serif;"><strong>Nota: </strong>Este correo fue enviado automáticamente. Por favor, no respondas a este mensaje.</p>
+                            <p >Atentamente,</p>
+                            <p style="margin-top: -10px;"><strong>Spring Telecom</strong></p>
+                        <br>
+                        </td>
+                    </tr>
+                    <!-- Footer -->
+                    <tr>
+                        <td style="background-color: #1a1a2e; color: #FFFFFF; padding: 2rem; " align="center">
+                            <!-- Contenido del footer aquí -->                  
+                            <h5 style="color: #FFFFFF; margin: 0; font-family: 'Open Sans', sans-serif; font-size: 13px;"><b>Gracias
+                                por estar con nosotros.</b></h5><br>
+                            <p style="margin: 0; font-size: 13px; font-family: 'Open Sans', sans-serif;">Si necesita ayuda o tiene
+                                preguntas, siempre nos complace poder ayudarle. Comuníquese con nosotros enviándonos un correo
+                                electrónico a monitoreo@springtelecom.mx</p>
+                            <p style="margin: 0; font-size: 13px; font-family: 'Open Sans', sans-serif;">Atentamente,</p>
+                            <p style="margin: 0; font-size: 13px; font-family: 'Open Sans', sans-serif;">Spring Telecom | © ShiftControl</p>
+                            <br>
+                            <p style="margin: 0; font-size: 9px; font-family: 'Open Sans', sans-serif;">Cuernavaca, Morelos. 
+                                Monitoreo: 777 135 18 86</p>
+                            <!-- Redes sociales y más -->
+                        </td>
+                    </tr>
+                </table>
+            </td>
         </tr>
-        <tr>
-          <td style="padding: 2rem;" align="center">
-            <h3 style="color: #1a1a2e; font-size: 24px;">Reporte de Turno #${id}</h3>
-            <p style="color: #333; font-size: 16px;">Se adjunta el reporte del turno con placas <strong>${placas}</strong>.</p>
-            <p style="color: #718096; font-size: 14px; margin-top: 20px;">Abre el archivo PDF adjunto para ver el detalle completo del turno.</p>
-          </td>
-        </tr>
-        <tr><td style="padding: 0 2rem;"><hr style="border: none; height: 2px; background-color: rgba(226,226,226,0.589);"></td></tr>
-        <tr>
-          <td style="padding: 0 2rem 25px 2rem; color: #666; font-size: 14px;">
-            <p><strong>Nota:</strong> Este correo fue enviado automáticamente. Por favor, no respondas a este mensaje.</p>
-          </td>
-        </tr>
-        <tr>
-          <td style="background-color: #1a1a2e; color: #FFFFFF; padding: 2rem;" align="center">
-            <p style="margin: 0; font-size: 13px;">© ShiftControl</p>
-          </td>
-        </tr>
-      </table>
-    </td></tr>
-  </table>
+    </table>
 </body>
 </html>`;
 
