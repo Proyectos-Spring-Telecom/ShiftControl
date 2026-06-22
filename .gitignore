@@ -57,3 +57,18 @@ pids
 
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# .zip files
+*.zip
+ShiftControl.zip
+shiftcontrol.zip
+shift.zip
+
+# .rar files
+*.rar
+
+# .7z files
+*.7z
+
+# .tar files
+*.tar
