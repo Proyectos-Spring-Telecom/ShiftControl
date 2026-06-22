@@ -34,7 +34,7 @@ export class PuppeteerPdfService implements OnModuleDestroy {
     try {
       const browser = await this.getBrowser();
       page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      await page.setContent(html, { waitUntil: 'load' });
       const pdf = await page.pdf({
         format: 'Letter',
         printBackground: true,

@@ -23,7 +23,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 @Roles(1, 2, 3) // Todos los roles pueden subir archivos
 @Controller('s3')
 export class S3Controller {
-  constructor(private readonly s3Service: S3Service) {}
+  constructor(private readonly s3Service: S3Service) { }
 
   @Post('upload')
   @UseInterceptors(

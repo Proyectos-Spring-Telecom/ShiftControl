@@ -63,7 +63,7 @@ export class MailService {
         throw error;
       }
       throw new InternalServerErrorException({
-        message: 'Error al enviar el correo con el reporte.',
+        message: 'Error al enviar el correo con el reporte.' + error.message,
       });
     }
   }

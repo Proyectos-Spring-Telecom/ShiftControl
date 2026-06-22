@@ -1,24 +1,16 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-  Between,
-  FindOptionsWhere,
-  In,
-  LessThanOrEqual,
-  MoreThanOrEqual,
-  Repository,
-} from 'typeorm';
+import { Repository } from 'typeorm';
 import type { Request } from 'express';
 import { Turnos } from 'src/entities/Turnos';
-import { Vehiculos } from 'src/entities/Vehiculos';
 import { BitacoraVehiculo } from 'src/entities/BitacoraVehiculo';
 import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
 import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
-import { EstatusEnum } from 'src/common/estatus.enum';
 import { normalizeMysqlTime } from 'src/common/mysql-time.util';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
+import { ReporteImagenService } from './reporte-imagen.service';
 
 const BITACORA_RELACIONES = [
   'tablero',
@@ -48,29 +40,6 @@ export interface DatosTurnoPdf {
   turno: Record<string, unknown>;
 }
 
-export interface TurnoPlanoVehiculo {
-  id: number;
-  placas: string;
-  fechaApertura: Date | null;
-  fechaCierre: Date | null;
-  duracion: string | null;
-  estatusTurno: string | null;
-}
-
-export interface DatosVehiculoPdf {
-  vehiculo: Vehiculos;
-  vehiculoDetalle: Record<string, unknown> | null;
-  turnos: TurnoPlanoVehiculo[];
-  totalTurnos: number;
-  totalIncidenciasAccidente: number;
-  totalIncidenciasGasolina: number;
-  totalInspecciones: number;
-  resumenGasolina: { totalLitros: number; totalPagado: number; totalKilometraje: number };
-  incidenciasAccidente: IncidenciaAccidente[];
-  incidenciasGasolina: IncidenciaGasolina[];
-  inspecciones: InspeccionVehiculoEx[];
-}
-
 @Injectable()
 export class ReportesPdfService {
   private readonly logger = new Logger(ReportesPdfService.name);
@@ -78,8 +47,6 @@ export class ReportesPdfService {
   constructor(
     @InjectRepository(Turnos)
     private readonly turnosRepo: Repository<Turnos>,
-    @InjectRepository(Vehiculos)
-    private readonly vehiculosRepo: Repository<Vehiculos>,
     @InjectRepository(BitacoraVehiculo)
     private readonly bitacoraRepo: Repository<BitacoraVehiculo>,
     @InjectRepository(IncidenciaAccidente)
@@ -90,7 +57,8 @@ export class ReportesPdfService {
     private readonly inspeccionRepo: Repository<InspeccionVehiculoEx>,
     private readonly vehiculosService: VehiculosService,
     private readonly endpointProxy: EndpointProxyService,
-  ) {}
+    private readonly reporteImagenService: ReporteImagenService,
+  ) { }
 
   async obtenerDatosTurno(
     idTurno: number,
@@ -98,7 +66,7 @@ export class ReportesPdfService {
     req: Request,
   ): Promise<DatosTurnoPdf> {
     const turno = await this.turnosRepo.findOne({
-      where: { id: idTurno, idCliente },
+      where: { id: idTurno },
       relations: ['vehiculo', 'estatusTurno'],
     });
     if (!turno) {
@@ -178,107 +146,17 @@ export class ReportesPdfService {
     };
   }
 
-  async obtenerDatosVehiculo(
-    idVehiculo: number,
-    idCliente: number,
-    req: Request,
-    fechaInicio?: Date,
-    fechaFin?: Date,
-  ): Promise<DatosVehiculoPdf> {
-    const vehiculo = await this.vehiculosRepo.findOne({
-      where: { id: idVehiculo, idCliente },
-    });
-    if (!vehiculo) {
-      throw new NotFoundException({ message: 'Vehículo no encontrado' });
-    }
+  async generarHtmlTurno(data: DatosTurnoPdf): Promise<string> {
+    const imageUrls = this.collectImageUrls(data);
+    const imageSrcMap = await this.reporteImagenService.comprimirUrls(imageUrls);
 
-    const placa = vehiculo.placas?.trim() ?? '';
-    const vehiculoDetalle = placa
-      ? await this.tryVehiculoPorPlaca(placa, req)
-      : null;
-
-    const where: FindOptionsWhere<Turnos> = { idVehiculo, idCliente };
-    if (fechaInicio && fechaFin) {
-      where.fechaApertura = Between(fechaInicio, fechaFin);
-    } else if (fechaInicio) {
-      where.fechaApertura = MoreThanOrEqual(fechaInicio);
-    } else if (fechaFin) {
-      where.fechaApertura = LessThanOrEqual(fechaFin);
-    }
-
-    const turnos = await this.turnosRepo.find({
-      where,
-      relations: ['estatusTurno'],
-      order: { fechaApertura: 'DESC' },
-    });
-
-    const turnoIds = turnos.map((t) => Number(t.id));
-    const turnosPlano: TurnoPlanoVehiculo[] = turnos.map((t) => ({
-      id: Number(t.id),
-      placas: vehiculo.placas,
-      fechaApertura: t.fechaApertura,
-      fechaCierre: t.fechaCierre,
-      duracion: t.duracion,
-      estatusTurno: t.estatusTurno?.nombre ?? null,
-    }));
-
-    let incidenciasAccidente: IncidenciaAccidente[] = [];
-    let incidenciasGasolina: IncidenciaGasolina[] = [];
-    let inspecciones: InspeccionVehiculoEx[] = [];
-
-    if (turnoIds.length > 0) {
-      incidenciasAccidente = await this.incidenciaAccidenteRepo.find({
-        where: {
-          idVehiculo,
-          idCliente,
-          idTurno: In(turnoIds),
-          estatus: EstatusEnum.ACTIVO,
-        },
-        relations: ['catTipoIncidente'],
-        order: { id: 'ASC' },
-      });
-      incidenciasGasolina = await this.incidenciaGasolinaRepo.find({
-        where: {
-          idVehiculo,
-          idCliente,
-          idTurno: In(turnoIds),
-          estatus: EstatusEnum.ACTIVO,
-        },
-        order: { id: 'ASC' },
-      });
-      inspecciones = await this.inspeccionRepo.find({
-        where: { idVehiculo, idTurno: In(turnoIds) },
-        relations: ['catVistaVehiculo', 'catTipoDano', 'catGradoSeveridad'],
-        order: { id: 'ASC' },
-      });
-    }
-
-    const totalLitros = incidenciasGasolina.reduce((s, g) => s + Number(g.litrosCargados || 0), 0);
-    const totalPagado = incidenciasGasolina.reduce((s, g) => s + Number(g.totalPagado || 0), 0);
-    const totalKilometraje = incidenciasGasolina.reduce((s, g) => s + Number(g.kilometraje || 0), 0);
-
-    return {
-      vehiculo,
-      vehiculoDetalle,
-      turnos: turnosPlano,
-      totalTurnos: turnos.length,
-      totalIncidenciasAccidente: incidenciasAccidente.length,
-      totalIncidenciasGasolina: incidenciasGasolina.length,
-      totalInspecciones: inspecciones.length,
-      resumenGasolina: { totalLitros, totalPagado, totalKilometraje },
-      incidenciasAccidente,
-      incidenciasGasolina,
-      inspecciones,
-    };
-  }
-
-  generarHtmlTurno(data: DatosTurnoPdf): string {
     const t = data.turno;
     const id = Number(t.id);
+    const placa = escapeHtml(String(t.placas ?? '—'));
     const body = `
 ${this.estilosBase()}
 <div class="header">
-  <h1>Reporte de Turno #${id}</h1>
+  <h1>Reporte de turno Folio: ${id} Placa: ${placa}</h1>
   <p class="sub">Generado: ${escapeHtml(this.formatFecha(new Date()))}</p>
 </div>
 
@@ -287,7 +165,7 @@ ${this.estilosBase()}
   <table class="data-table">
     <tbody>
       <tr><th>ID</th><td>${id}</td></tr>
-      <tr><th>Placas</th><td>${escapeHtml(String(t.placas ?? ''))}</td></tr>
+      <tr><th>Placas</th><td>${placa}</td></tr>
       <tr><th>Operador</th><td>${escapeHtml(String(t.operadorNombre ?? '—'))} ${t.operadorId ? `<span class="badge">${escapeHtml(String(t.operadorId))}</span>` : ''}</td></tr>
       <tr><th>Estatus turno</th><td><span class="badge">${escapeHtml(String(t.estatusTurnoNombre ?? '—'))}</span></td></tr>
       <tr><th>Apertura</th><td>${escapeHtml(this.formatFecha(t.fechaApertura as Date | null))}</td></tr>
@@ -295,119 +173,80 @@ ${this.estilosBase()}
       <tr><th>Duración</th><td>${escapeHtml(String(t.duracion ?? '—'))}</td></tr>
       <tr><th>Coord. apertura</th><td>${escapeHtml(String(t.latitudApertura ?? ''))}, ${escapeHtml(String(t.longitudApertura ?? ''))}</td></tr>
       <tr><th>Coord. cierre</th><td>${escapeHtml(String(t.latitudCierre ?? ''))}, ${escapeHtml(String(t.longitudCierre ?? ''))}</td></tr>
+      ${this.renderFilaImagen('Evidencia apertura', t.evidenciaApertura, imageSrcMap)}
+      ${this.renderFilaImagen('Evidencia cierre', t.evidenciaCierre, imageSrcMap)}
     </tbody>
   </table>
 </div>
 
-${this.seccionBitacora('Bitácora de apertura', t.bitacoraApertura)}
-${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre)}
+${this.seccionBitacora('Bitácora de apertura', t.bitacoraApertura, imageSrcMap)}
+${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre, imageSrcMap)}
 
 <div class="section">
   <h2>Inspecciones exteriores</h2>
-  ${this.tablaInspecciones(t.inspeccionesVehiculoEx)}
+  ${this.tablaInspecciones(t.inspeccionesVehiculoEx, imageSrcMap)}
 </div>
 
 <div class="section">
   <h2>Incidencias de accidente</h2>
-  ${this.tablaIncidenciasAccidente(t.incidenciasAccidente)}
+  ${this.tablaIncidenciasAccidente(t.incidenciasAccidente, imageSrcMap)}
 </div>
 
 <div class="section">
   <h2>Incidencias de gasolina</h2>
-  ${this.tablaIncidenciasGasolina(t.incidenciasGasolina)}
+  ${this.tablaIncidenciasGasolina(t.incidenciasGasolina, imageSrcMap)}
 </div>
 
 <footer class="footer">ShiftControl — Reporte generado automáticamente</footer>
 `;
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Turno ${id}</title></head><body>${body}</body></html>`;
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Reporte de turno Folio: ${id} Placa: ${placa}</title></head><body>${body}</body></html>`;
   }
 
-  generarHtmlVehiculo(data: DatosVehiculoPdf): string {
-    const v = data.vehiculo;
-    const det = data.vehiculoDetalle;
-    const placas = escapeHtml(
-      (typeof det?.['placa'] === 'string' && det['placa'].trim()) ||
-        (typeof det?.['placas'] === 'string' && det['placas'].trim()) ||
-        v.placas,
-    );
-    const tituloVehiculo = this.formatTituloVehiculo(det, placas);
-    const body = `
-${this.estilosBase()}
-<div class="header">
-  <h1>Reporte de vehículo — ${tituloVehiculo}</h1>
-  <p class="sub">Generado: ${escapeHtml(this.formatFecha(new Date()))}</p>
-</div>
+  private collectImageUrls(data: DatosTurnoPdf): string[] {
+    const t = data.turno;
+    const urls: string[] = [];
+    const add = (value: unknown) => {
+      const url = this.reporteImagenService.normalizeImageUrl(value);
+      if (url) {
+        urls.push(url);
+      }
+    };
 
-<div class="section">
-  <h2>Información del vehículo</h2>
-  <table class="data-table">
-    <tbody>
-      <tr><th>ID sombra</th><td>${Number(v.id)}</td></tr>
-      <tr><th>Placas</th><td>${placas}</td></tr>
-      ${this.filaVehiculoDetalle('Marca', det?.['marca'])}
-      ${this.filaVehiculoDetalle('Modelo', det?.['modelo'])}
-      ${this.filaVehiculoDetalle('Año', det?.['anio'] ?? det?.['año'])}
-      <tr><th>Id cliente</th><td>${Number(v.idCliente)}</td></tr>
-      <tr><th>Fecha registro</th><td>${escapeHtml(this.formatFecha(v.fechaCreacion))}</td></tr>
-    </tbody>
-  </table>
-</div>
+    add(t.evidenciaApertura);
+    add(t.evidenciaCierre);
 
-<div class="stats-grid">
-  <div class="stat-card"><div class="stat-number">${data.totalTurnos}</div><div>Turnos</div></div>
-  <div class="stat-card"><div class="stat-number">${data.totalIncidenciasAccidente}</div><div>Incid. accidente</div></div>
-  <div class="stat-card"><div class="stat-number">${data.totalIncidenciasGasolina}</div><div>Cargas gasolina</div></div>
-  <div class="stat-card"><div class="stat-number">${data.totalInspecciones}</div><div>Inspecciones</div></div>
-</div>
+    for (const bit of [t.bitacoraApertura, t.bitacoraCierre]) {
+      const tab = asRecord(asRecord(bit)?.tablero);
+      add(tab?.fotoTablero);
+    }
 
-<div class="section">
-  <h2>Resumen gasolina</h2>
-  <table class="data-table">
-    <tbody>
-      <tr><th>Total litros</th><td>${data.resumenGasolina.totalLitros.toFixed(2)}</td></tr>
-      <tr><th>Total pagado</th><td>$ ${data.resumenGasolina.totalPagado.toFixed(2)}</td></tr>
-      <tr><th>Suma kilometraje (registros)</th><td>${data.resumenGasolina.totalKilometraje.toFixed(1)}</td></tr>
-    </tbody>
-  </table>
-</div>
+    if (Array.isArray(t.inspeccionesVehiculoEx)) {
+      for (const raw of t.inspeccionesVehiculoEx) {
+        add(asRecord(raw)?.evidenciaFotografica);
+      }
+    }
 
-<div class="section">
-  <h2>Historial de turnos</h2>
-  <table class="data-table">
-    <thead><tr><th>ID</th><th>Placas</th><th>Apertura</th><th>Cierre</th><th>Duración</th><th>Estatus</th></tr></thead>
-    <tbody>
-      ${data.turnos
-        .map(
-          (row) => `<tr>
-        <td>${row.id}</td>
-        <td>${escapeHtml(row.placas)}</td>
-        <td>${escapeHtml(this.formatFecha(row.fechaApertura))}</td>
-        <td>${escapeHtml(this.formatFecha(row.fechaCierre))}</td>
-        <td>${row.duracion ?? '—'}</td>
-        <td>${escapeHtml(row.estatusTurno ?? '—')}</td>
-      </tr>`,
-        )
-        .join('')}
-    </tbody>
-  </table>
-</div>
+    if (Array.isArray(t.incidenciasAccidente)) {
+      for (const raw of t.incidenciasAccidente) {
+        const i = asRecord(raw);
+        if (!i) continue;
+        add(i.fotoEvidencia1);
+        add(i.fotoEvidencia2);
+        add(i.fotoEvidencia3);
+      }
+    }
 
-<div class="section">
-  <h2>Incidencias de accidente</h2>
-  ${this.tablaIncidenciasAccidente(data.incidenciasAccidente as unknown[])}
-</div>
-<div class="section">
-  <h2>Incidencias de gasolina</h2>
-  ${this.tablaIncidenciasGasolina(data.incidenciasGasolina as unknown[])}
-</div>
-<div class="section">
-  <h2>Inspecciones exteriores</h2>
-  ${this.tablaInspecciones(data.inspecciones as unknown[])}
-</div>
+    if (Array.isArray(t.incidenciasGasolina)) {
+      for (const raw of t.incidenciasGasolina) {
+        const i = asRecord(raw);
+        if (!i) continue;
+        add(i.fotoTableroAntes);
+        add(i.fotoTableroDespues);
+        add(i.fotoBomba);
+      }
+    }
 
-<footer class="footer">ShiftControl — Reporte generado automáticamente</footer>
-`;
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Vehículo ${placas}</title></head><body>${body}</body></html>`;
+    return [...new Set(urls)];
   }
 
   private estilosBase(): string {
@@ -425,12 +264,57 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
 .warning { color: #c05621; font-weight: 600; }
 .ok { color: #276749; font-weight: 600; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #edf2f7; }
-.stats-grid { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-.stat-card { flex: 1; min-width: 120px; text-align: center; background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; }
-.stat-number { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.report-img { max-width: 280px; max-height: 220px; object-fit: contain; display: block; margin: 4px 0; border: 1px solid #e2e8f0; border-radius: 4px; }
+.report-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
 .footer { text-align: center; color: #718096; font-size: 11px; margin-top: 24px; }
 @media print { .section { break-inside: avoid; } }
 </style>`;
+  }
+
+  private resolveImageSrc(url: unknown, imageSrcMap: Map<string, string>): string | null {
+    const original = this.reporteImagenService.normalizeImageUrl(url);
+    if (!original) {
+      return null;
+    }
+    return imageSrcMap.get(original) ?? original;
+  }
+
+  private renderImagenHtml(
+    url: unknown,
+    alt: string,
+    imageSrcMap: Map<string, string>,
+  ): string {
+    const src = this.resolveImageSrc(url, imageSrcMap);
+    if (!src) {
+      return '';
+    }
+    return `<img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" class="report-img" />`;
+  }
+
+  private renderImagenesHtml(
+    urls: unknown[],
+    alt: string,
+    imageSrcMap: Map<string, string>,
+  ): string {
+    const imgs = urls
+      .map((url) => this.renderImagenHtml(url, alt, imageSrcMap))
+      .filter((html) => html.length > 0);
+    if (imgs.length === 0) {
+      return '';
+    }
+    return `<div class="report-imgs">${imgs.join('')}</div>`;
+  }
+
+  private renderFilaImagen(
+    etiqueta: string,
+    url: unknown,
+    imageSrcMap: Map<string, string>,
+  ): string {
+    const img = this.renderImagenHtml(url, etiqueta, imageSrcMap);
+    if (!img) {
+      return '';
+    }
+    return `<tr><th>${escapeHtml(etiqueta)}</th><td>${img}</td></tr>`;
   }
 
   private formatFecha(fecha: Date | null | undefined): string {
@@ -453,7 +337,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${n}% — ${icon}</span></td></tr>`;
   }
 
-  /** Testigos / luces: valor 1 = alerta encendido */
+  /** Testigos: valor 1 = alerta encendido */
   private renderFilaEstatus(nombre: string, valor: unknown): string {
     const v = valor != null ? Number(valor) : null;
     if (v == null || Number.isNaN(v)) {
@@ -462,6 +346,18 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     const alerta = v === 1;
     const cls = alerta ? 'warning' : 'ok';
     const txt = alerta ? '⚠️ Encendido / alerta' : '✅ OK';
+    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
+  }
+
+  /** Luces: valor 1 = normal; 0 = alerta */
+  private renderFilaLuz(nombre: string, valor: unknown): string {
+    const v = valor != null ? Number(valor) : null;
+    if (v == null || Number.isNaN(v)) {
+      return `<tr><th>${escapeHtml(nombre)}</th><td>—</td></tr>`;
+    }
+    const alerta = v === 0;
+    const cls = alerta ? 'warning' : 'ok';
+    const txt = alerta ? '⚠️ Alerta' : '✅ Normal';
     return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
   }
 
@@ -476,7 +372,11 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
   }
 
-  private seccionBitacora(titulo: string, bit: unknown): string {
+  private seccionBitacora(
+    titulo: string,
+    bit: unknown,
+    imageSrcMap: Map<string, string>,
+  ): string {
     const b = asRecord(bit);
     if (!b) {
       return `<div class="section"><h2>${escapeHtml(titulo)}</h2><p>Sin datos.</p></div>`;
@@ -491,9 +391,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     let tableroRows = '';
     if (tab) {
       tableroRows = `<tr><th>Km actual</th><td>${escapeHtml(String(tab.kmActual ?? '—'))}</td></tr>`;
-      if (tab.fotoTablero) {
-        tableroRows += `<tr><th>Foto tablero</th><td>${escapeHtml(String(tab.fotoTablero))}</td></tr>`;
-      }
+      tableroRows += this.renderFilaImagen('Foto tablero', tab.fotoTablero, imageSrcMap);
     }
 
     const fluidLabels: [string, string][] = [
@@ -522,35 +420,23 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     let lucesRows = '';
     if (lv) {
       for (const [label, key] of lucesKeys) {
-        lucesRows += this.renderFilaEstatus(label, lv[key]);
+        lucesRows += this.renderFilaLuz(label, lv[key]);
       }
     }
 
     const testigoKeys: [string, string][] = [
-      ['Temperatura motor alta', 'temperaturaMotorAlta'],
-      ['Presión aceite', 'presionAceite'],
-      ['Batería (testigo)', 'bateria'],
-      ['Airbag', 'airbag'],
-      ['Check engine', 'checkEngine'],
       ['ABS', 'abs'],
-      ['Sistema de frenos', 'sistemaFrenos'],
-      ['Control estabilidad', 'controlEstabilidad'],
-      ['Control tracción', 'controlTraccion'],
-      ['Nivel combustible', 'nivelCombustible'],
-      ['Filtro partículas', 'filtroParticulas'],
-      ['Bujías incandescentes', 'bujiasIncandecentes'],
-      ['Presión neumático', 'presionNeumatico'],
-      ['Falla dirección asistida', 'fallaDireccionAsistida'],
-      ['Refrigerante motor', 'refrigeranteMotor'],
-      ['Bloqueo diferencial', 'bloqueoDiferencial'],
-      ['Control acelerador', 'controlAcelerador'],
-      ['Llave presencia', 'llavePresencia'],
-      ['Nivel líquido frenos', 'nivelLiquidoFrenos'],
-      ['Cajuela', 'cajuela'],
-      ['Puerta', 'puerta'],
+      ['Potencia', 'potencia'],
       ['Cinturón seguridad', 'cinturonSeguridad'],
-      ['Cambio aceite', 'cambioAceite'],
-      ['Servicio', 'servicio'],
+      ['Luces', 'luces'],
+      ['Presión aceite', 'presionAceite'],
+      ['Batería', 'bateria'],
+      ['Check engine', 'checkEngine'],
+      ['Airbag', 'airbag'],
+      ['Presión neumático', 'presionNeumatico'],
+      ['Sistema de frenos', 'sistemaFrenos'],
+      ['Temperatura motor', 'temperaturaMotor'],
+      ['Falla dirección asistida', 'fallaDireccionAsistida'],
     ];
     let testigosRows = '';
     if (tv) {
@@ -561,13 +447,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
 
     const accKeys: [string, string][] = [
       ['Limpiaparabrisas', 'limpiaparabrisas'],
+      ['Aguas', 'aguas'],
       ['Extintor', 'extintor'],
       ['Triángulos', 'tringulosSeguridad'],
       ['Stereo', 'stereo'],
       ['Tapetes', 'tapetes'],
+      ['Herramienta', 'herramienta'],
       ['Refacción', 'refaccion'],
-      ['Gato', 'gato'],
-      ['Birlo seguridad', 'birloSeguridad'],
+      ['Impermeable', 'impermeable'],
     ];
     let accRows = '';
     if (av) {
@@ -577,14 +464,11 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     }
 
     const docKeys: [string, string][] = [
+      ['Bitácora vehicular', 'bitacoraVehicular'],
+      ['Certificado ecológico', 'certificadoEcologico'],
+      ['Póliza seguro', 'polizaSeguro'],
       ['Tarjeta circulación', 'tarjetaCirculacion'],
       ['Verificación', 'verificacion'],
-      ['Póliza seguro', 'polizaSeguro'],
-      ['Tenencia', 'tenencia'],
-      ['Certificado ecológico', 'certificadoEcologico'],
-      ['Manual', 'manual'],
-      ['Permiso carga', 'permisoCarga'],
-      ['Carta porte', 'cartaPorte'],
     ];
     let docRows = '';
     if (dv) {
@@ -612,7 +496,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
 </div>`;
   }
 
-  private tablaInspecciones(arr: unknown): string {
+  private tablaInspecciones(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
       return '<p>Sin inspecciones.</p>';
     }
@@ -629,14 +513,15 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
           <td>${escapeHtml(String(i.partesVehiculoEx ?? '—'))}</td>
           <td>${escapeHtml(String(ctd?.nombre ?? '—'))}</td>
           <td>${escapeHtml(String(cgs?.nombre ?? '—'))}</td>
+          <td>${this.renderImagenHtml(i.evidenciaFotografica, 'Evidencia inspección', imageSrcMap) || '—'}</td>
           <td>${escapeHtml(this.formatFecha(i.fechaCreacion as Date))}</td>
         </tr>`;
       })
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Vista</th><th>Parte</th><th>Tipo daño</th><th>Severidad</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table class="data-table"><thead><tr><th>ID</th><th>Vista</th><th>Parte</th><th>Tipo daño</th><th>Severidad</th><th>Evidencia</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  private tablaIncidenciasAccidente(arr: unknown): string {
+  private tablaIncidenciasAccidente(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
       return '<p>Sin incidencias.</p>';
     }
@@ -647,18 +532,24 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
         const desc = String(i.descripcion ?? '');
         const short = desc.length > 80 ? `${desc.slice(0, 80)}…` : desc;
         const cti = asRecord(i.catTipoIncidente);
+        const fotos = this.renderImagenesHtml(
+          [i.fotoEvidencia1, i.fotoEvidencia2, i.fotoEvidencia3],
+          'Evidencia accidente',
+          imageSrcMap,
+        );
         return `<tr>
           <td>${Number(i.id)}</td>
           <td>${escapeHtml(short)}</td>
           <td>${escapeHtml(String(cti?.nombre ?? '—'))}</td>
+          <td>${fotos || '—'}</td>
           <td>${escapeHtml(this.formatFecha(i.fechaRegistro as Date))}</td>
         </tr>`;
       })
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Descripción</th><th>Tipo incidente</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table class="data-table"><thead><tr><th>ID</th><th>Descripción</th><th>Tipo incidente</th><th>Evidencias</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
-  private tablaIncidenciasGasolina(arr: unknown): string {
+  private tablaIncidenciasGasolina(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
       return '<p>Sin incidencias.</p>';
     }
@@ -666,16 +557,22 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
       .map((raw) => {
         const i = asRecord(raw);
         if (!i) return '';
+        const fotos = this.renderImagenesHtml(
+          [i.fotoTableroAntes, i.fotoTableroDespues, i.fotoBomba],
+          'Evidencia gasolina',
+          imageSrcMap,
+        );
         return `<tr>
           <td>${Number(i.id)}</td>
           <td>${escapeHtml(String(i.kilometraje ?? '—'))}</td>
           <td>${escapeHtml(String(i.litrosCargados ?? '—'))}</td>
           <td>$ ${escapeHtml(String(i.totalPagado ?? '—'))}</td>
+          <td>${fotos || '—'}</td>
           <td>${escapeHtml(this.formatFecha(i.fechaRegistro as Date))}</td>
         </tr>`;
       })
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Km</th><th>Litros</th><th>Total</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table class="data-table"><thead><tr><th>ID</th><th>Km</th><th>Litros</th><th>Total</th><th>Fotos</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   private async cargarBitacoraCompleta(
@@ -745,6 +642,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
       idBitacoraVehiculo: i.idBitacoraVehiculo,
       idVehiculo: i.idVehiculo,
       partesVehiculoEx: i.partesVehiculoEx,
+      evidenciaFotografica: i.evidenciaFotografica,
       fechaCreacion: i.fechaCreacion,
       catVistaVehiculo: cv
         ? { id: Number(cv.id), nombre: cv.nombre }
@@ -777,12 +675,12 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
       fechaActualizacion: ia.fechaActualizacion,
       catTipoIncidente: cat
         ? {
-            id: Number(cat.id),
-            nombre: cat.nombre,
-            estatus: cat.estatus,
-            fechaCreacion: cat.fechaCreacion,
-            fechaActualizacion: cat.fechaActualizacion,
-          }
+          id: Number(cat.id),
+          nombre: cat.nombre,
+          estatus: cat.estatus,
+          fechaCreacion: cat.fechaCreacion,
+          fechaActualizacion: cat.fechaActualizacion,
+        }
         : null,
     };
   }
@@ -895,44 +793,6 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     return idRaw != null && String(idRaw).trim() !== ''
       ? `ID: ${String(idRaw).trim()}`
       : null;
-  }
-
-  private formatTituloVehiculo(
-    det: Record<string, unknown> | null,
-    placasEscapadas: string,
-  ): string {
-    if (!det) {
-      return placasEscapadas;
-    }
-    const marca =
-      typeof det['marca'] === 'string'
-        ? det['marca']
-        : asRecord(det['marca'])?.['nombre'];
-    const modelo =
-      typeof det['modelo'] === 'string'
-        ? det['modelo']
-        : asRecord(det['modelo'])?.['nombre'];
-    const anio = det['anio'] ?? det['año'];
-    const partes = [marca, modelo, anio]
-      .filter((v) => v != null && String(v).trim())
-      .map((v) => escapeHtml(String(v).trim()));
-    if (partes.length === 0) {
-      return placasEscapadas;
-    }
-    return `${partes.join(' ')} (${placasEscapadas})`;
-  }
-
-  private filaVehiculoDetalle(etiqueta: string, valor: unknown): string {
-    if (valor == null || String(valor).trim() === '') {
-      return '';
-    }
-    const texto =
-      typeof valor === 'string'
-        ? valor
-        : asRecord(valor)?.['nombre'] != null
-          ? String(asRecord(valor)!.nombre)
-          : String(valor);
-    return `<tr><th>${escapeHtml(etiqueta)}</th><td>${escapeHtml(texto)}</td></tr>`;
   }
 
 }
