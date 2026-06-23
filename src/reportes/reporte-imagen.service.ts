@@ -1,10 +1,38 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import axios from 'axios';
+import * as fs from 'fs';
+import * as path from 'path';
 import sharp from 'sharp';
+
+const LOGO_FILE = 'spring-logo-vertical.png';
 
 @Injectable()
 export class ReporteImagenService {
-  private readonly logger = new Logger(ReporteImagenService.name);
+  private logoDataUri: string | null = null;
+
+  getLogoDataUri(): string {
+    if (this.logoDataUri) {
+      return this.logoDataUri;
+    }
+    const logoPath = this.resolveLogoPath();
+    const buffer = fs.readFileSync(logoPath);
+    this.logoDataUri = `data:image/png;base64,${buffer.toString('base64')}`;
+    return this.logoDataUri;
+  }
+
+  private resolveLogoPath(): string {
+    const candidates = [
+      path.join(__dirname, 'assets', LOGO_FILE),
+      path.join(process.cwd(), 'dist', 'src', 'reportes', 'assets', LOGO_FILE),
+      path.join(process.cwd(), 'dist', 'reportes', 'assets', LOGO_FILE),
+      path.join(process.cwd(), 'src', 'reportes', 'assets', LOGO_FILE),
+    ];
+    const found = candidates.find((candidate) => fs.existsSync(candidate));
+    if (!found) {
+      throw new Error(`Logo no encontrado: ${LOGO_FILE}`);
+    }
+    return found;
+  }
 
   normalizeImageUrl(raw: unknown): string | null {
     if (raw == null) {
@@ -22,27 +50,20 @@ export class ReporteImagenService {
 
   async comprimirUrls(urls: string[]): Promise<Map<string, string>> {
     const unicas = [...new Set(urls)];
-    const map = new Map<string, string>();
     if (unicas.length === 0) {
-      return map;
+      return new Map();
     }
 
     const maxWidth = this.resolveMaxWidth();
     const quality = this.resolveQuality();
-    this.logger.log(
-      `Comprimiendo ${unicas.length} imagen(es) para PDF (maxWidth=${maxWidth}, quality=${quality})`,
-    );
-
-    await Promise.all(
+    const entries = await Promise.all(
       unicas.map(async (url) => {
         const src = await this.comprimirUrl(url, maxWidth, quality);
-        if (src) {
-          map.set(url, src);
-        }
+        return src ? ([url, src] as const) : null;
       }),
     );
 
-    return map;
+    return new Map(entries.filter((entry): entry is [string, string] => entry != null));
   }
 
   private resolveMaxWidth(): number {
@@ -67,20 +88,14 @@ export class ReporteImagenService {
         maxContentLength: 25 * 1024 * 1024,
         validateStatus: (status) => status >= 200 && status < 300,
       });
-      const input = Buffer.from(response.data);
-      const compressed = await sharp(input)
+      const compressed = await sharp(Buffer.from(response.data))
         .rotate()
         .resize({ width: maxWidth, withoutEnlargement: true })
         .jpeg({ quality, mozjpeg: true })
         .toBuffer();
 
-      this.logger.debug(
-        `Imagen comprimida ${url}: ${input.length} → ${compressed.length} bytes`,
-      );
       return `data:image/jpeg;base64,${compressed.toString('base64')}`;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      this.logger.warn(`No se pudo comprimir imagen ${url}: ${msg}; se usará URL original`);
+    } catch {
       return url;
     }
   }

@@ -9,6 +9,7 @@ import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.modul
 import { MailModule } from 'src/mail/mail.module';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
+import { UbicacionModule } from 'src/ubicacion/ubicacion.module';
 import { ReportesController } from './reportes.controller';
 import { ReportesPdfService } from './reportes-pdf.service';
 import { PuppeteerPdfService } from './puppeteer-pdf.service';
@@ -27,6 +28,7 @@ import { ReporteImagenService } from './reporte-imagen.service';
     MailModule,
     EndpointProxyModule,
     VehiculosModule,
+    UbicacionModule,
   ],
   controllers: [ReportesController],
   providers: [ReportesPdfService, PuppeteerPdfService, ReporteImagenService],

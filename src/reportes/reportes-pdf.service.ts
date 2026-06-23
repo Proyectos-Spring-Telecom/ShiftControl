@@ -7,9 +7,10 @@ import { BitacoraVehiculo } from 'src/entities/BitacoraVehiculo';
 import { IncidenciaAccidente } from 'src/entities/IncidenciaAccidente';
 import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { InspeccionVehiculoEx } from 'src/entities/InspeccionVehiculoEx';
-import { normalizeMysqlTime } from 'src/common/mysql-time.util';
+import { normalizeMysqlTime, mysqlTimeToDuracionStr } from 'src/common/mysql-time.util';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
+import { UbicacionService } from 'src/ubicacion/ubicacion.service';
 import { ReporteImagenService } from './reporte-imagen.service';
 
 const BITACORA_RELACIONES = [
@@ -58,6 +59,7 @@ export class ReportesPdfService {
     private readonly vehiculosService: VehiculosService,
     private readonly endpointProxy: EndpointProxyService,
     private readonly reporteImagenService: ReporteImagenService,
+    private readonly ubicacionService: UbicacionService,
   ) { }
 
   async obtenerDatosTurno(
@@ -148,33 +150,43 @@ export class ReportesPdfService {
 
   async generarHtmlTurno(data: DatosTurnoPdf): Promise<string> {
     const imageUrls = this.collectImageUrls(data);
-    const imageSrcMap = await this.reporteImagenService.comprimirUrls(imageUrls);
+    const [imageSrcMap, direccionApertura, direccionCierre] = await Promise.all([
+      this.reporteImagenService.comprimirUrls(imageUrls),
+      this.resolverDireccion(data.turno['latitudApertura'], data.turno['longitudApertura']),
+      this.resolverDireccion(data.turno['latitudCierre'], data.turno['longitudCierre']),
+    ]);
 
     const t = data.turno;
-    const id = Number(t.id);
     const placa = escapeHtml(String(t.placas ?? '—'));
+    const logoSrc = escapeHtml(this.reporteImagenService.getLogoDataUri());
     const body = `
 ${this.estilosBase()}
 <div class="header">
-  <h1>Reporte de turno Folio: ${id} Placa: ${placa}</h1>
-  <p class="sub">Generado: ${escapeHtml(this.formatFecha(new Date()))}</p>
+  <div class="header-inner">
+    <div class="header-logo-wrap">
+      <img src="${logoSrc}" alt="Spring Telecom" class="header-logo" />
+    </div>
+    <div class="header-text">
+      <h1>Reporte de turno Placa: ${placa}</h1>
+      <p class="sub">Generado: ${escapeHtml(this.formatFecha(new Date()))}</p>
+    </div>
+  </div>
 </div>
 
 <div class="section">
   <h2>Información general</h2>
   <table class="data-table">
     <tbody>
-      <tr><th>ID</th><td>${id}</td></tr>
       <tr><th>Placas</th><td>${placa}</td></tr>
-      <tr><th>Operador</th><td>${escapeHtml(String(t.operadorNombre ?? '—'))} ${t.operadorId ? `<span class="badge">${escapeHtml(String(t.operadorId))}</span>` : ''}</td></tr>
+      <tr><th>Operador</th><td>${escapeHtml(String(t.operadorNombre ?? '—'))}</td></tr>
       <tr><th>Estatus turno</th><td><span class="badge">${escapeHtml(String(t.estatusTurnoNombre ?? '—'))}</span></td></tr>
       <tr><th>Apertura</th><td>${escapeHtml(this.formatFecha(t.fechaApertura as Date | null))}</td></tr>
+      <tr><th>Dirección apertura</th><td>${escapeHtml(direccionApertura)}</td></tr>
+      <tr><th>Duración (h/m)</th><td>${escapeHtml(this.formatDuracion(t.duracion))}</td></tr>
       <tr><th>Cierre</th><td>${escapeHtml(this.formatFecha(t.fechaCierre as Date | null))}</td></tr>
-      <tr><th>Duración</th><td>${escapeHtml(String(t.duracion ?? '—'))}</td></tr>
-      <tr><th>Coord. apertura</th><td>${escapeHtml(String(t.latitudApertura ?? ''))}, ${escapeHtml(String(t.longitudApertura ?? ''))}</td></tr>
-      <tr><th>Coord. cierre</th><td>${escapeHtml(String(t.latitudCierre ?? ''))}, ${escapeHtml(String(t.longitudCierre ?? ''))}</td></tr>
-      ${this.renderFilaImagen('Evidencia apertura', t.evidenciaApertura, imageSrcMap)}
-      ${this.renderFilaImagen('Evidencia cierre', t.evidenciaCierre, imageSrcMap)}
+      <tr><th>Dirección cierre</th><td>${escapeHtml(direccionCierre)}</td></tr>
+      ${this.renderFilaImagen('Captura de placa', t.evidenciaApertura, imageSrcMap)}
+      ${this.renderFilaImagen('Resguardo', t.evidenciaCierre, imageSrcMap)}
     </tbody>
   </table>
 </div>
@@ -188,18 +200,18 @@ ${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre, imageSrcMap)}
 </div>
 
 <div class="section">
-  <h2>Incidencias de accidente</h2>
+  <h2>Registro De Accidente</h2>
   ${this.tablaIncidenciasAccidente(t.incidenciasAccidente, imageSrcMap)}
 </div>
 
 <div class="section">
-  <h2>Incidencias de gasolina</h2>
+  <h2>Registro de gasolina</h2>
   ${this.tablaIncidenciasGasolina(t.incidenciasGasolina, imageSrcMap)}
 </div>
 
 <footer class="footer">ShiftControl — Reporte generado automáticamente</footer>
 `;
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Reporte de turno Folio: ${id} Placa: ${placa}</title></head><body>${body}</body></html>`;
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Reporte de turno Placa: ${placa}</title></head><body>${body}</body></html>`;
   }
 
   private collectImageUrls(data: DatosTurnoPdf): string[] {
@@ -249,24 +261,44 @@ ${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre, imageSrcMap)}
     return [...new Set(urls)];
   }
 
+  private async resolverDireccion(lat: unknown, lon: unknown): Promise<string> {
+    const latNum = lat != null && lat !== '' ? Number(lat) : NaN;
+    const lonNum = lon != null && lon !== '' ? Number(lon) : NaN;
+    if (!Number.isFinite(latNum) || !Number.isFinite(lonNum)) {
+      return '—';
+    }
+    try {
+      const result = await this.ubicacionService.reverseGeocode(latNum, lonNum);
+      return result.displayName?.trim() || '—';
+    } catch {
+      return '—';
+    }
+  }
+
   private estilosBase(): string {
     return `<style>
-body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1a2e; margin: 0; padding: 16px; }
-.header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; padding: 30px; border-radius: 8px; margin-bottom: 20px; }
-.header h1 { margin: 0 0 8px 0; font-size: 22px; }
-.sub { margin: 0; opacity: 0.9; font-size: 12px; }
-.section { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
-.section h2 { margin: 0 0 12px 0; font-size: 15px; border-bottom: 2px solid #4a5568; padding-bottom: 6px; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2963; margin: 0; padding: 16px; background: #fff; }
+.header { background: linear-gradient(135deg, #001c6a, #681330); color: #fff; padding: 24px 30px; border-radius: 8px; margin-bottom: 20px; }
+.header-inner { display: flex; align-items: center; gap: 24px; }
+.header-logo-wrap { background: #fff; padding: 10px 14px; border-radius: 8px; flex-shrink: 0; }
+.header-logo { height: 64px; width: auto; display: block; object-fit: contain; }
+.header-text { flex: 1; min-width: 0; }
+.header h1 { margin: 0 0 8px 0; font-size: 20px; color: #fff; }
+.sub { margin: 0; opacity: 0.92; font-size: 12px; color: #fff; }
+.section { background: #fff; border: 1px solid #0E2963; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
+.section h2 { margin: 0 0 12px 0; font-size: 15px; color: #0E2963; border-bottom: 2px solid #681330; padding-bottom: 6px; }
+.section h3 { margin: 16px 0 8px 0; font-size: 13px; color: #681330; }
 .data-table { width: 100%; border-collapse: collapse; }
-.data-table th, .data-table td { border: 1px solid #e2e8f0; padding: 8px; text-align: left; }
-.data-table th { background: #edf2f7; width: 28%; }
-.data-table tr:nth-child(even) { background: #f7fafc; }
-.warning { color: #c05621; font-weight: 600; }
-.ok { color: #276749; font-weight: 600; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #edf2f7; }
-.report-img { max-width: 280px; max-height: 220px; object-fit: contain; display: block; margin: 4px 0; border: 1px solid #e2e8f0; border-radius: 4px; }
+.data-table th, .data-table td { border: 1px solid #0E2963; padding: 8px; text-align: left; }
+.data-table th { background: #0E2963; color: #fff; width: 28%; }
+.data-table thead th { background: #681330; color: #fff; }
+.warning { color: #681330; font-weight: 600; }
+.ok { color: #0E2963; font-weight: 600; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #681330; color: #fff; }
+.report-img { max-width: 280px; max-height: 220px; object-fit: contain; display: block; margin: 4px 0; border: 1px solid #0E2963; border-radius: 4px; }
 .report-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
-.footer { text-align: center; color: #718096; font-size: 11px; margin-top: 24px; }
+.record-table + .record-table { margin-top: 16px; }
+.footer { text-align: center; color: #681330; font-size: 11px; margin-top: 24px; }
 @media print { .section { break-inside: avoid; } }
 </style>`;
   }
@@ -318,12 +350,107 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
   }
 
   private formatFecha(fecha: Date | null | undefined): string {
-    if (fecha == null) return 'N/A';
+    if (fecha == null) {
+      return 'N/A';
+    }
     try {
-      return new Date(fecha).toLocaleString('es-MX', { timeZone: 'America/Mexico_City' });
+      const d = new Date(fecha);
+      if (Number.isNaN(d.getTime())) {
+        return 'N/A';
+      }
+
+      const partes = new Intl.DateTimeFormat('es-MX', {
+        timeZone: 'America/Mexico_City',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'numeric',
+        year: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+      }).formatToParts(d);
+
+      const diaSemanaRaw =
+        partes.find((p) => p.type === 'weekday')?.value.toLowerCase().replace(/\./g, '') ?? '';
+      const dia = partes.find((p) => p.type === 'day')?.value ?? '';
+      const mesIndex = Number(partes.find((p) => p.type === 'month')?.value) - 1;
+      const anio = partes.find((p) => p.type === 'year')?.value ?? '';
+      const hora = partes.find((p) => p.type === 'hour')?.value ?? '';
+      const minuto = partes.find((p) => p.type === 'minute')?.value ?? '';
+      const periodo = (partes.find((p) => p.type === 'dayPeriod')?.value ?? '').replace(/\s/g, '');
+
+      const diasSemana: Record<string, string> = {
+        domingo: 'Dom',
+        lunes: 'Lun',
+        martes: 'Mar',
+        miercoles: 'Mié',
+        miércoles: 'Mié',
+        jueves: 'Jue',
+        viernes: 'Vie',
+        sabado: 'Sáb',
+        sábado: 'Sáb',
+      };
+      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+      const diaSemana = diasSemana[diaSemanaRaw] ?? '—';
+      const mes = meses[mesIndex] ?? '—';
+
+      return `${diaSemana} ${dia} de ${mes} ${anio}, ${hora}:${minuto} ${periodo}`;
     } catch {
       return 'N/A';
     }
+  }
+
+  private formatNumeroConUnidad(
+    valor: unknown,
+    unidad: string,
+    decimales = 0,
+  ): string {
+    if (valor == null || valor === '') {
+      return '—';
+    }
+    const n = Number(valor);
+    if (!Number.isFinite(n)) {
+      const s = String(valor).trim();
+      return s ? `${s} ${unidad}` : '—';
+    }
+    const formatted = n.toLocaleString('es-MX', {
+      minimumFractionDigits: decimales,
+      maximumFractionDigits: decimales,
+    });
+    return `${formatted} ${unidad}`;
+  }
+
+  private formatKilometros(valor: unknown): string {
+    return this.formatNumeroConUnidad(valor, 'km', 0);
+  }
+
+  private formatLitros(valor: unknown): string {
+    const n = valor != null && valor !== '' ? Number(valor) : NaN;
+    const decimales = Number.isFinite(n) && !Number.isInteger(n) ? 2 : 0;
+    return this.formatNumeroConUnidad(valor, 'L', decimales);
+  }
+
+  private formatMonedaMx(valor: unknown): string {
+    if (valor == null || valor === '') {
+      return '—';
+    }
+    const n = Number(valor);
+    if (!Number.isFinite(n)) {
+      return '—';
+    }
+    return `$ ${n.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN`;
+  }
+
+  private formatDuracion(valor: unknown): string {
+    const legible = mysqlTimeToDuracionStr(normalizeMysqlTime(valor));
+    if (legible) {
+      return legible;
+    }
+    if (valor == null || valor === '') {
+      return '—';
+    }
+    return String(valor);
   }
 
   private renderFilaFluido(nombre: string, valor: unknown): string {
@@ -334,7 +461,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     const low = n < 25;
     const cls = low ? 'warning' : 'ok';
     const icon = low ? '⚠️ Bajo' : '✅ OK';
-    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${n}% — ${icon}</span></td></tr>`;
+    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${n} % — ${icon}</span></td></tr>`;
   }
 
   /** Testigos: valor 1 = alerta encendido */
@@ -390,7 +517,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
 
     let tableroRows = '';
     if (tab) {
-      tableroRows = `<tr><th>Km actual</th><td>${escapeHtml(String(tab.kmActual ?? '—'))}</td></tr>`;
+      tableroRows = `<tr><th>Kilometraje</th><td>${escapeHtml(this.formatKilometros(tab.kmActual))}</td></tr>`;
       tableroRows += this.renderFilaImagen('Foto tablero', tab.fotoTablero, imageSrcMap);
     }
 
@@ -480,10 +607,9 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
     return `
 <div class="section">
   <h2>${escapeHtml(titulo)}</h2>
-  <p><strong>Tipo:</strong> ${escapeHtml(String(b.tipo ?? '—'))} · <strong>ID bitácora:</strong> ${escapeHtml(String(b.id ?? ''))}</p>
   <h3>Tablero</h3>
   <table class="data-table"><tbody>${tableroRows || '<tr><td colspan="2">Sin tablero</td></tr>'}</tbody></table>
-  <h3>Niveles de fluidos</h3>
+  <h3>Niveles de fluidos (%)</h3>
   <table class="data-table"><tbody>${fluidRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
   <h3>Luces</h3>
   <table class="data-table"><tbody>${lucesRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
@@ -496,36 +622,49 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
 </div>`;
   }
 
+  private renderTablaRegistro(filas: [string, string][]): string {
+    const rows = filas
+      .map(
+        ([label, value]) =>
+          `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`,
+      )
+      .join('');
+    return `<table class="data-table record-table"><tbody>${rows}</tbody></table>`;
+  }
+
   private tablaInspecciones(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
       return '<p>Sin inspecciones.</p>';
     }
-    const rows = arr
+    return arr
       .map((raw) => {
         const i = asRecord(raw);
         if (!i) return '';
         const cv = asRecord(i.catVistaVehiculo);
         const ctd = asRecord(i.catTipoDano);
         const cgs = asRecord(i.catGradoSeveridad);
-        return `<tr>
-          <td>${Number(i.id)}</td>
-          <td>${escapeHtml(String(cv?.nombre ?? '—'))}</td>
-          <td>${escapeHtml(String(i.partesVehiculoEx ?? '—'))}</td>
-          <td>${escapeHtml(String(ctd?.nombre ?? '—'))}</td>
-          <td>${escapeHtml(String(cgs?.nombre ?? '—'))}</td>
-          <td>${this.renderImagenHtml(i.evidenciaFotografica, 'Evidencia inspección', imageSrcMap) || '—'}</td>
-          <td>${escapeHtml(this.formatFecha(i.fechaCreacion as Date))}</td>
-        </tr>`;
+        return this.renderTablaRegistro([
+          ['Vista', escapeHtml(String(cv?.nombre ?? '—'))],
+          ['Parte', escapeHtml(String(i.partesVehiculoEx ?? '—'))],
+          ['Tipo daño', escapeHtml(String(ctd?.nombre ?? '—'))],
+          ['Severidad', escapeHtml(String(cgs?.nombre ?? '—'))],
+          [
+            'Evidencia',
+            this.renderImagenHtml(i.evidenciaFotografica, 'Evidencia inspección', imageSrcMap) ||
+              '—',
+          ],
+          ['Fecha', escapeHtml(this.formatFecha(i.fechaCreacion as Date))],
+        ]);
       })
+      .filter((html) => html.length > 0)
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Vista</th><th>Parte</th><th>Tipo daño</th><th>Severidad</th><th>Evidencia</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   private tablaIncidenciasAccidente(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
-      return '<p>Sin incidencias.</p>';
+      return '<p>Sin registros.</p>';
     }
-    const rows = arr
+    return arr
       .map((raw) => {
         const i = asRecord(raw);
         if (!i) return '';
@@ -537,23 +676,22 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
           'Evidencia accidente',
           imageSrcMap,
         );
-        return `<tr>
-          <td>${Number(i.id)}</td>
-          <td>${escapeHtml(short)}</td>
-          <td>${escapeHtml(String(cti?.nombre ?? '—'))}</td>
-          <td>${fotos || '—'}</td>
-          <td>${escapeHtml(this.formatFecha(i.fechaRegistro as Date))}</td>
-        </tr>`;
+        return this.renderTablaRegistro([
+          ['Descripción', escapeHtml(short)],
+          ['Tipo incidente', escapeHtml(String(cti?.nombre ?? '—'))],
+          ['Evidencias', fotos || '—'],
+          ['Fecha', escapeHtml(this.formatFecha(i.fechaRegistro as Date))],
+        ]);
       })
+      .filter((html) => html.length > 0)
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Descripción</th><th>Tipo incidente</th><th>Evidencias</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   private tablaIncidenciasGasolina(arr: unknown, imageSrcMap: Map<string, string>): string {
     if (!Array.isArray(arr) || arr.length === 0) {
-      return '<p>Sin incidencias.</p>';
+      return '<p>Sin registros.</p>';
     }
-    const rows = arr
+    return arr
       .map((raw) => {
         const i = asRecord(raw);
         if (!i) return '';
@@ -562,17 +700,16 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #1a1
           'Evidencia gasolina',
           imageSrcMap,
         );
-        return `<tr>
-          <td>${Number(i.id)}</td>
-          <td>${escapeHtml(String(i.kilometraje ?? '—'))}</td>
-          <td>${escapeHtml(String(i.litrosCargados ?? '—'))}</td>
-          <td>$ ${escapeHtml(String(i.totalPagado ?? '—'))}</td>
-          <td>${fotos || '—'}</td>
-          <td>${escapeHtml(this.formatFecha(i.fechaRegistro as Date))}</td>
-        </tr>`;
+        return this.renderTablaRegistro([
+          ['Kilometraje (km)', escapeHtml(this.formatKilometros(i.kilometraje))],
+          ['Litros (L)', escapeHtml(this.formatLitros(i.litrosCargados))],
+          ['Total (MXN)', escapeHtml(this.formatMonedaMx(i.totalPagado))],
+          ['Fotos', fotos || '—'],
+          ['Fecha', escapeHtml(this.formatFecha(i.fechaRegistro as Date))],
+        ]);
       })
+      .filter((html) => html.length > 0)
       .join('');
-    return `<table class="data-table"><thead><tr><th>ID</th><th>Km</th><th>Litros</th><th>Total</th><th>Fotos</th><th>Fecha</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   private async cargarBitacoraCompleta(
