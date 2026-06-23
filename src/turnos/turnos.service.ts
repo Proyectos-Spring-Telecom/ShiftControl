@@ -361,12 +361,12 @@ export class TurnosService {
       fechaActualizacion: ia.fechaActualizacion,
       catTipoIncidente: cat
         ? {
-            id: Number(cat.id),
-            nombre: cat.nombre,
-            estatus: cat.estatus,
-            fechaCreacion: cat.fechaCreacion,
-            fechaActualizacion: cat.fechaActualizacion,
-          }
+          id: Number(cat.id),
+          nombre: cat.nombre,
+          estatus: cat.estatus,
+          fechaCreacion: cat.fechaCreacion,
+          fechaActualizacion: cat.fechaActualizacion,
+        }
         : null,
     };
   }
@@ -777,7 +777,7 @@ export class TurnosService {
 
       return {
         status: 'success',
-        message: 'Incidencia de gasolina registrada correctamente',
+        message: 'Registro de combustible exitoso.',
         data: {
           id: idNuevo,
           idTurno: Number(turno.id),
