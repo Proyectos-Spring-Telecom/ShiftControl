@@ -32,6 +32,7 @@ import { LoginAuthConfirmacionDto } from './dto/login-confirmacion.dto';
 import { UpdateUsuarioContrasenaDto } from './dto/update-usuario-contrasena.dto';
 import { UpdateMiPinDto } from './dto/update-mi-pin.dto';
 import { LoginRefreshTokenDto } from './dto/login-refresh-token.dto';
+import { LoginMeResponseDto } from './dto/login-me.response.dto';
 import { CodigoPasajeroAutenticacion } from './dto/login-autenticacion.dto';
 import { JwtAuthGuard } from 'src/guard/jwt-auth.guard';
 import { RolesGuard } from 'src/guard/roles.guard';
@@ -184,6 +185,21 @@ export class AuthController {
   @Get('me')
   @ApiBearerAuth('bearer-token')
   @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Perfil del usuario autenticado',
+    description:
+      'Proxy BFF hacia Next `GET {ENDPOINT_URL}/api/login/me`. ' +
+      'El `userId` se toma del JWT; no se envía en URL ni body. ' +
+      'Incluye `telefono` (Usuarios.Telefono en Next; `""` si es null).',
+  })
+  @ApiOkResponse({
+    description: 'Perfil del usuario activo',
+    type: LoginMeResponseDto,
+  })
+  @ApiUnauthorizedResponse({
+    description:
+      'Token ausente, inválido o expirado; usuario no encontrado o inactivo (estatus ≠ 1)',
+  })
   async me(
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
