@@ -173,7 +173,7 @@ ${this.estilosBase()}
   </div>
 </div>
 
-<div class="section">
+<div class="section section-compact">
   <h2>Información general</h2>
   <table class="data-table">
     <tbody>
@@ -277,29 +277,38 @@ ${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre, imageSrcMap)}
 
   private estilosBase(): string {
     return `<style>
-body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2963; margin: 0; padding: 16px; background: #fff; }
-.header { background: linear-gradient(135deg, #001c6a, #681330); color: #fff; padding: 24px 30px; border-radius: 8px; margin-bottom: 20px; }
-.header-inner { display: flex; align-items: center; gap: 24px; }
-.header-logo-wrap { background: #fff; padding: 10px 14px; border-radius: 8px; flex-shrink: 0; }
-.header-logo { height: 64px; width: auto; display: block; object-fit: contain; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: #0E2963; margin: 0; padding: 10px; background: #fff; line-height: 1.35; }
+.header { background: linear-gradient(135deg, #001c6a, #681330); color: #fff; padding: 14px 18px; border-radius: 8px; margin-bottom: 10px; }
+.header-inner { display: flex; align-items: center; gap: 16px; }
+.header-logo-wrap { background: #fff; padding: 6px 10px; border-radius: 8px; flex-shrink: 0; }
+.header-logo { height: 52px; width: auto; display: block; object-fit: contain; }
 .header-text { flex: 1; min-width: 0; }
-.header h1 { margin: 0 0 8px 0; font-size: 20px; color: #fff; }
-.sub { margin: 0; opacity: 0.92; font-size: 12px; color: #fff; }
-.section { background: #fff; border: 1px solid #0E2963; border-radius: 8px; padding: 16px; margin-bottom: 20px; }
-.section h2 { margin: 0 0 12px 0; font-size: 15px; color: #0E2963; border-bottom: 2px solid #681330; padding-bottom: 6px; }
-.section h3 { margin: 16px 0 8px 0; font-size: 13px; color: #681330; }
-.data-table { width: 100%; border-collapse: collapse; }
-.data-table th, .data-table td { border: 1px solid #0E2963; padding: 8px; text-align: left; }
+.header h1 { margin: 0 0 4px 0; font-size: 18px; color: #fff; line-height: 1.25; }
+.sub { margin: 0; opacity: 0.92; font-size: 11px; color: #fff; }
+.section { background: #fff; border: 1px solid #0E2963; border-radius: 8px; padding: 10px 12px; margin-bottom: 10px; }
+.section h2 { margin: 0 0 8px 0; font-size: 14px; color: #0E2963; border-bottom: 2px solid #681330; padding-bottom: 4px; }
+.section-compact .subsection { margin-bottom: 6px; }
+.section-compact .subsection:last-child { margin-bottom: 0; }
+.section-compact h3 { margin: 0 0 4px 0; font-size: 12px; color: #681330; }
+.data-table { width: 100%; border-collapse: collapse; margin: 0; }
+.data-table th, .data-table td { border: 1px solid #0E2963; padding: 5px 6px; text-align: left; vertical-align: top; }
 .data-table th { background: #0E2963; color: #fff; width: 28%; }
+.data-table-doble th { width: 22%; font-size: 10px; }
+.data-table-doble td { width: 28%; font-size: 10px; }
 .data-table thead th { background: #681330; color: #fff; }
 .warning { color: #681330; font-weight: 600; }
 .ok { color: #0E2963; font-weight: 600; }
-.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; background: #681330; color: #fff; }
-.report-img { max-width: 280px; max-height: 220px; object-fit: contain; display: block; margin: 4px 0; border: 1px solid #0E2963; border-radius: 4px; }
-.report-imgs { display: flex; flex-wrap: wrap; gap: 8px; }
-.record-table + .record-table { margin-top: 16px; }
-.footer { text-align: center; color: #681330; font-size: 11px; margin-top: 24px; }
-@media print { .section { break-inside: avoid; } }
+.badge { display: inline-block; padding: 1px 6px; border-radius: 4px; background: #681330; color: #fff; font-size: 10px; }
+.report-img { max-width: 200px; max-height: 150px; object-fit: contain; display: block; margin: 2px 0; border: 1px solid #0E2963; border-radius: 4px; }
+.report-imgs { display: flex; flex-wrap: wrap; gap: 6px; }
+.record-table + .record-table { margin-top: 8px; }
+.footer { text-align: center; color: #681330; font-size: 10px; margin-top: 12px; }
+.empty-msg { padding: 4px 6px; font-size: 10px; color: #681330; }
+@media print {
+  body { padding: 0; }
+  .section { break-inside: auto; page-break-inside: auto; margin-bottom: 8px; }
+  .subsection, .data-table { break-inside: avoid; page-break-inside: avoid; }
+}
 </style>`;
   }
 
@@ -453,50 +462,89 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
     return String(valor);
   }
 
-  private renderFilaFluido(nombre: string, valor: unknown): string {
+  private celdaFluido(nombre: string, valor: unknown): [string, string] {
     const n = valor != null && valor !== '' ? Number(valor) : null;
     if (n == null || Number.isNaN(n)) {
-      return `<tr><th>${escapeHtml(nombre)}</th><td>—</td></tr>`;
+      return [escapeHtml(nombre), '—'];
     }
     const low = n < 25;
     const cls = low ? 'warning' : 'ok';
     const icon = low ? '⚠️ Bajo' : '✅ OK';
-    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${n} % — ${icon}</span></td></tr>`;
+    return [escapeHtml(nombre), `<span class="${cls}">${n} % — ${icon}</span>`];
   }
 
-  /** Testigos: valor 1 = alerta encendido */
-  private renderFilaEstatus(nombre: string, valor: unknown): string {
+  private celdaEstatus(nombre: string, valor: unknown): [string, string] {
     const v = valor != null ? Number(valor) : null;
     if (v == null || Number.isNaN(v)) {
-      return `<tr><th>${escapeHtml(nombre)}</th><td>—</td></tr>`;
+      return [escapeHtml(nombre), '—'];
     }
     const alerta = v === 1;
     const cls = alerta ? 'warning' : 'ok';
     const txt = alerta ? '⚠️ Encendido / alerta' : '✅ OK';
-    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
+    return [escapeHtml(nombre), `<span class="${cls}">${txt}</span>`];
   }
 
-  /** Luces: valor 1 = normal; 0 = alerta */
-  private renderFilaLuz(nombre: string, valor: unknown): string {
+  private celdaLuz(nombre: string, valor: unknown): [string, string] {
     const v = valor != null ? Number(valor) : null;
     if (v == null || Number.isNaN(v)) {
-      return `<tr><th>${escapeHtml(nombre)}</th><td>—</td></tr>`;
+      return [escapeHtml(nombre), '—'];
     }
     const alerta = v === 0;
     const cls = alerta ? 'warning' : 'ok';
     const txt = alerta ? '⚠️ Alerta' : '✅ Normal';
-    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
+    return [escapeHtml(nombre), `<span class="${cls}">${txt}</span>`];
   }
 
-  private renderFilaAccesorioDoc(nombre: string, valor: unknown): string {
+  private celdaAccesorioDoc(nombre: string, valor: unknown): [string, string] {
     const v = valor != null ? Number(valor) : null;
     if (v == null || Number.isNaN(v)) {
-      return `<tr><th>${escapeHtml(nombre)}</th><td>—</td></tr>`;
+      return [escapeHtml(nombre), '—'];
     }
     const ok = v === 1;
     const cls = ok ? 'ok' : 'warning';
     const txt = ok ? '✅ Sí' : '— No';
-    return `<tr><th>${escapeHtml(nombre)}</th><td><span class="${cls}">${txt}</span></td></tr>`;
+    return [escapeHtml(nombre), `<span class="${cls}">${txt}</span>`];
+  }
+
+  /** Dos pares etiqueta-valor por fila (4 columnas) para reducir altura del PDF. */
+  private renderTablaDobleFilas(celdas: [string, string][]): string {
+    if (celdas.length === 0) {
+      return '';
+    }
+    let rows = '';
+    for (let i = 0; i < celdas.length; i += 2) {
+      const [l1, v1] = celdas[i];
+      const par2 = celdas[i + 1];
+      if (par2) {
+        const [l2, v2] = par2;
+        rows += `<tr><th>${l1}</th><td>${v1}</td><th>${l2}</th><td>${v2}</td></tr>`;
+      } else {
+        rows += `<tr><th>${l1}</th><td colspan="3">${v1}</td></tr>`;
+      }
+    }
+    return rows;
+  }
+
+  private wrapSubseccionBitacora(titulo: string, contenido: string): string {
+    return `<div class="subsection"><h3>${escapeHtml(titulo)}</h3>${contenido}</div>`;
+  }
+
+  private wrapTablaBitacoraDoble(
+    filas: string,
+    mensajeVacio: string,
+  ): string {
+    if (!filas) {
+      return `<p class="empty-msg">${mensajeVacio}</p>`;
+    }
+    return `<table class="data-table data-table-doble"><tbody>${filas}</tbody></table>`;
+  }
+
+  private buildCeldasDesdeRegistro(
+    keys: [string, string][],
+    record: Record<string, unknown>,
+    celdaFn: (label: string, valor: unknown) => [string, string],
+  ): [string, string][] {
+    return keys.map(([label, key]) => celdaFn(label, record[key]));
   }
 
   private seccionBitacora(
@@ -528,12 +576,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
       ['Anticongelante', 'anticongelante'],
       ['Líquido de frenos', 'liquidoFrenos'],
     ];
-    let fluidRows = '';
-    if (nf) {
-      for (const [label, key] of fluidLabels) {
-        fluidRows += this.renderFilaFluido(label, nf[key]);
-      }
-    }
+    const fluidRows =
+      nf != null
+        ? this.renderTablaDobleFilas(
+            this.buildCeldasDesdeRegistro(fluidLabels, nf, (l, v) =>
+              this.celdaFluido(l, v),
+            ),
+          )
+        : '';
 
     const lucesKeys: [string, string][] = [
       ['Altas', 'altas'],
@@ -544,12 +594,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
       ['Direccionales traseras', 'direccionalesTraseras'],
       ['Intermitentes laterales', 'intermitentesLaterales'],
     ];
-    let lucesRows = '';
-    if (lv) {
-      for (const [label, key] of lucesKeys) {
-        lucesRows += this.renderFilaLuz(label, lv[key]);
-      }
-    }
+    const lucesRows =
+      lv != null
+        ? this.renderTablaDobleFilas(
+            this.buildCeldasDesdeRegistro(lucesKeys, lv, (l, v) =>
+              this.celdaLuz(l, v),
+            ),
+          )
+        : '';
 
     const testigoKeys: [string, string][] = [
       ['ABS', 'abs'],
@@ -565,12 +617,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
       ['Temperatura motor', 'temperaturaMotor'],
       ['Falla dirección asistida', 'fallaDireccionAsistida'],
     ];
-    let testigosRows = '';
-    if (tv) {
-      for (const [label, key] of testigoKeys) {
-        testigosRows += this.renderFilaEstatus(label, tv[key]);
-      }
-    }
+    const testigosRows =
+      tv != null
+        ? this.renderTablaDobleFilas(
+            this.buildCeldasDesdeRegistro(testigoKeys, tv, (l, v) =>
+              this.celdaEstatus(l, v),
+            ),
+          )
+        : '';
 
     const accKeys: [string, string][] = [
       ['Limpiaparabrisas', 'limpiaparabrisas'],
@@ -583,12 +637,14 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
       ['Refacción', 'refaccion'],
       ['Impermeable', 'impermeable'],
     ];
-    let accRows = '';
-    if (av) {
-      for (const [label, key] of accKeys) {
-        accRows += this.renderFilaAccesorioDoc(label, av[key]);
-      }
-    }
+    const accRows =
+      av != null
+        ? this.renderTablaDobleFilas(
+            this.buildCeldasDesdeRegistro(accKeys, av, (l, v) =>
+              this.celdaAccesorioDoc(l, v),
+            ),
+          )
+        : '';
 
     const docKeys: [string, string][] = [
       ['Bitácora vehicular', 'bitacoraVehicular'],
@@ -597,28 +653,27 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 12px; color: #0E2
       ['Tarjeta circulación', 'tarjetaCirculacion'],
       ['Verificación', 'verificacion'],
     ];
-    let docRows = '';
-    if (dv) {
-      for (const [label, key] of docKeys) {
-        docRows += this.renderFilaAccesorioDoc(label, dv[key]);
-      }
-    }
+    const docRows =
+      dv != null
+        ? this.renderTablaDobleFilas(
+            this.buildCeldasDesdeRegistro(docKeys, dv, (l, v) =>
+              this.celdaAccesorioDoc(l, v),
+            ),
+          )
+        : '';
 
     return `
-<div class="section">
+<div class="section section-compact">
   <h2>${escapeHtml(titulo)}</h2>
-  <h3>Tablero</h3>
-  <table class="data-table"><tbody>${tableroRows || '<tr><td colspan="2">Sin tablero</td></tr>'}</tbody></table>
-  <h3>Niveles de fluidos (%)</h3>
-  <table class="data-table"><tbody>${fluidRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-  <h3>Luces</h3>
-  <table class="data-table"><tbody>${lucesRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-  <h3>Testigos</h3>
-  <table class="data-table"><tbody>${testigosRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-  <h3>Accesorios</h3>
-  <table class="data-table"><tbody>${accRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
-  <h3>Documentación</h3>
-  <table class="data-table"><tbody>${docRows || '<tr><td colspan="2">Sin datos</td></tr>'}</tbody></table>
+  ${this.wrapSubseccionBitacora(
+    'Tablero',
+    `<table class="data-table"><tbody>${tableroRows || '<tr><td colspan="2">Sin tablero</td></tr>'}</tbody></table>`,
+  )}
+  ${this.wrapSubseccionBitacora('Niveles de fluidos (%)', this.wrapTablaBitacoraDoble(fluidRows, 'Sin datos'))}
+  ${this.wrapSubseccionBitacora('Luces', this.wrapTablaBitacoraDoble(lucesRows, 'Sin datos'))}
+  ${this.wrapSubseccionBitacora('Testigos', this.wrapTablaBitacoraDoble(testigosRows, 'Sin datos'))}
+  ${this.wrapSubseccionBitacora('Accesorios', this.wrapTablaBitacoraDoble(accRows, 'Sin datos'))}
+  ${this.wrapSubseccionBitacora('Documentación', this.wrapTablaBitacoraDoble(docRows, 'Sin datos'))}
 </div>`;
   }
 

@@ -38,7 +38,7 @@ export class PuppeteerPdfService implements OnModuleDestroy {
       const pdf = await page.pdf({
         format: 'Letter',
         printBackground: true,
-        margin: { top: '10mm', bottom: '10mm', left: '10mm', right: '10mm' },
+        margin: { top: '8mm', bottom: '8mm', left: '8mm', right: '8mm' },
       });
       return Buffer.from(pdf);
     } catch (err) {
