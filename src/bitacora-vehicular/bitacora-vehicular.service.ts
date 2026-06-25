@@ -308,6 +308,13 @@ export class BitacoraVehicularService {
         valor: this.nivelGasolina(bitacora.nivelesFluidos?.gasolina),
       },
       {
+        etiqueta: 'Estado de los niveles del vehículo',
+        valor: this.estadoPorEstatusAlerta(
+          bitacora.nivelesFluidos?.estatus,
+          ESTADO_FALLBACK.indicadores,
+        ),
+      },
+      {
         etiqueta: 'Estado de las Luces',
         valor: this.estadoPorEstatusAlerta(
           bitacora.lucesVehiculo?.estatus,

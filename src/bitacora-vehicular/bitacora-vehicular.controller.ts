@@ -56,6 +56,7 @@ export class BitacoraVehicularController {
             { etiqueta: 'Estado de la carrocería', valor: 'Bueno' },
             { etiqueta: 'Estado de indicadores', valor: 'Bueno' },
             { etiqueta: 'Nivel de Gasolina', valor: '95 %' },
+            { etiqueta: 'Estado de los niveles del vehículo', valor: 'Bueno' },
             { etiqueta: 'Estado de las Luces', valor: 'Bueno' },
             { etiqueta: 'Estado de accesorios', valor: 'Bueno' },
             { etiqueta: 'Documentación', valor: 'En regla' },
