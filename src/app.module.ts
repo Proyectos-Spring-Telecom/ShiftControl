@@ -19,6 +19,7 @@ import { EmbedModule } from './embed/embed.module';
 import { PlacasModule } from './placas/placas.module';
 import { UbicacionModule } from './ubicacion/ubicacion.module';
 import { BitacoraVehicularModule } from './bitacora-vehicular/bitacora-vehicular.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 import Joi from 'joi';
 
 @Module({
@@ -66,6 +67,7 @@ import Joi from 'joi';
         BEHAVIORIQ_USER_NAME: Joi.string().optional().allow(''),
         BEHAVIORIQ_PASSWORD: Joi.string().optional().allow(''),
         NOMINATIM_BASE_URL: Joi.string().uri().optional(),
+        WEBHOOK_SECRET: Joi.string().allow('').default(''),
       }),
     }),
 
@@ -138,6 +140,8 @@ import Joi from 'joi';
     UbicacionModule,
 
     BitacoraVehicularModule,
+
+    WebhooksModule,
   ],
   providers: [
     {

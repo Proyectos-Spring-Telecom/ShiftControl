@@ -68,6 +68,10 @@ async function bootstrap() {
       'Placas (BehaviorIQ)',
       'Afiliación de placa — alta (`POST /placas`). Requiere JWT ShiftControl; hacia BehaviorIQ el servidor usa `BEHAVIORIQ_*` (login .env).',
     )
+    .addTag(
+      'Webhooks',
+      'Receptor de eventos desde Next (`POST /webhooks/next`). Autenticación HMAC con `WEBHOOK_SECRET`, sin JWT.',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
