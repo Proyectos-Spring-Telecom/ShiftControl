@@ -36,6 +36,7 @@ import { CrearIncidenciaAccidenteDto } from './dto/crear-incidencia-accidente.dt
 import { CrearIncidenciaGasolinaDto } from './dto/crear-incidencia-gasolina.dto';
 import {
   MiTurnoActivoResponseDto,
+  MiTurnoTurnoActualDto,
   MiTurnoUltimoTurnoDto,
   MiTurnoUltimaIncidenciaAccidenteDto,
   MiTurnoUltimaIncidenciaGasolinaDto,
@@ -2056,7 +2057,7 @@ export class TurnosService {
     idCliente: number,
     req: Request,
   ): Promise<MiTurnoActivoResponseDto> {
-    const [turno, ultimoTurno, ultimaIncidenciaAccidente, ultimaIncidenciaGasolina] =
+    const [turno, ultimoTurno, ultimaIncidenciaAccidente, ultimaIncidenciaGasolina, ultimoTurnoAbierto, ultimoTurnoReciente] =
       await Promise.all([
         this.repository.findOne({
           where: {
@@ -2071,7 +2072,15 @@ export class TurnosService {
         this.findUltimoTurnoCerrado(idUsuario, idCliente, req),
         this.findUltimaIncidenciaAccidente(idUsuario, idCliente),
         this.findUltimaIncidenciaGasolina(idUsuario, idCliente),
+        this.findUltimoTurnoSinCierre(idUsuario, idCliente),
+        this.findUltimoTurnoReciente(idUsuario, idCliente),
       ]);
+
+    const turnoActual = this.buildTurnoActualReferencia(
+      turno,
+      ultimoTurnoAbierto,
+      ultimoTurnoReciente,
+    );
 
     if (!turno?.fechaApertura) {
       return {
@@ -2083,6 +2092,7 @@ export class TurnosService {
         ultimoTurno,
         ultimaIncidenciaAccidente,
         ultimaIncidenciaGasolina,
+        turnoActual,
       };
     }
 
@@ -2122,7 +2132,79 @@ export class TurnosService {
       ultimoTurno,
       ultimaIncidenciaAccidente,
       ultimaIncidenciaGasolina,
+      turnoActual,
     };
+  }
+
+  private buildTurnoActualReferencia(
+    turnoEnCurso: Turnos | null,
+    ultimoTurnoAbierto: Turnos | null,
+    ultimoTurnoReciente: Turnos | null,
+  ): MiTurnoTurnoActualDto {
+    if (turnoEnCurso?.fechaApertura) {
+      return {
+        etiqueta: 'Turno actual',
+        idTurno: Number(turnoEnCurso.id),
+        fechaApertura: new Date(turnoEnCurso.fechaApertura).toISOString(),
+        enCurso: turnoEnCurso.idEstatusTurno === EnumEstatusTurno.EN_CURSO,
+      };
+    }
+
+    if (ultimoTurnoAbierto?.fechaApertura) {
+      return {
+        etiqueta: 'Último turno abierto',
+        idTurno: Number(ultimoTurnoAbierto.id),
+        fechaApertura: new Date(ultimoTurnoAbierto.fechaApertura).toISOString(),
+        enCurso: ultimoTurnoAbierto.idEstatusTurno === EnumEstatusTurno.EN_CURSO,
+      };
+    }
+
+    if (ultimoTurnoReciente?.fechaApertura) {
+      return {
+        etiqueta: 'Último turno',
+        idTurno: Number(ultimoTurnoReciente.id),
+        fechaApertura: new Date(ultimoTurnoReciente.fechaApertura).toISOString(),
+        enCurso: ultimoTurnoReciente.idEstatusTurno === EnumEstatusTurno.EN_CURSO,
+      };
+    }
+
+    return {
+      etiqueta: 'Sin turnos registrados',
+      idTurno: null,
+      fechaApertura: null,
+      enCurso: false,
+    };
+  }
+
+  /** Último turno del usuario por fecha de apertura (cualquier estatus). */
+  private async findUltimoTurnoReciente(
+    idUsuario: number,
+    idCliente: number,
+  ): Promise<Turnos | null> {
+    return this.repository.findOne({
+      where: {
+        idUsuario,
+        idCliente,
+        fechaApertura: Not(IsNull()),
+      },
+      order: { fechaApertura: 'DESC' },
+    });
+  }
+
+  /** Último turno del usuario sin fecha de cierre (puede no estar EN_CURSO). */
+  private async findUltimoTurnoSinCierre(
+    idUsuario: number,
+    idCliente: number,
+  ): Promise<Turnos | null> {
+    return this.repository.findOne({
+      where: {
+        idUsuario,
+        idCliente,
+        fechaCierre: IsNull(),
+        fechaApertura: Not(IsNull()),
+      },
+      order: { fechaApertura: 'DESC' },
+    });
   }
 
 

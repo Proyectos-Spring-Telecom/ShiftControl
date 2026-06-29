@@ -81,6 +81,31 @@ export class MiTurnoUltimaIncidenciaGasolinaDto {
   litrosCargados: number | null;
 }
 
+/** Referencia al turno más reciente por apertura (siempre presente en la respuesta). */
+export class MiTurnoTurnoActualDto {
+  @ApiProperty({
+    description: 'Etiqueta descriptiva para UI',
+    example: 'Turno actual',
+  })
+  etiqueta: string;
+
+  @ApiPropertyOptional({ example: 15, nullable: true })
+  idTurno: number | null;
+
+  @ApiPropertyOptional({
+    description: 'Fecha/hora de apertura del turno (ISO 8601)',
+    example: '2026-06-04T14:30:00.000Z',
+    nullable: true,
+  })
+  fechaApertura: string | null;
+
+  @ApiPropertyOptional({
+    description: 'true si el turno está en catálogo EN_CURSO',
+    example: true,
+  })
+  enCurso: boolean;
+}
+
 /** Respuesta de GET /api/turnos/mi-turno (turno en curso del usuario autenticado). */
 export class MiTurnoActivoResponseDto {
   @ApiProperty({
@@ -132,4 +157,11 @@ export class MiTurnoActivoResponseDto {
     nullable: true,
   })
   ultimaIncidenciaGasolina: MiTurnoUltimaIncidenciaGasolinaDto | null;
+
+  @ApiProperty({
+    type: MiTurnoTurnoActualDto,
+    description:
+      'Referencia al turno más reciente por fecha de apertura: turno en curso, último abierto sin cierre o último turno del usuario. Siempre presente (nunca null).',
+  })
+  turnoActual: MiTurnoTurnoActualDto;
 }

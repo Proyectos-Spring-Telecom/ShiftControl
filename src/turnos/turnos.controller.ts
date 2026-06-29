@@ -1116,6 +1116,7 @@ export class TurnosController {
       'Devuelve si hay turno activo, datos del vehículo (sombra local + detalle Next por placa), ' +
       'fecha de inicio y duración en segundos desde la apertura. ' +
       'Incluye `ultimoTurno`: último turno finalizado del usuario (estatus 0, idEstatusTurno 3): fechaCierre, placa, marca, modelo y duración (TIME). ' +
+      'Incluye `turnoActual`: fecha de apertura del turno en curso, último abierto sin cierre o último turno del usuario (siempre presente, nunca null). ' +
       'Incluye `ultimaIncidenciaAccidente` y `ultimaIncidenciaGasolina`: último registro activo de cada tabla del usuario.',
   })
   @ApiOkResponse({ type: MiTurnoActivoResponseDto })
