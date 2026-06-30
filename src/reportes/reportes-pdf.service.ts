@@ -148,6 +148,12 @@ export class ReportesPdfService {
     };
   }
 
+  buildNombreArchivoTurno(turno: Record<string, unknown>): string {
+    const placa = this.sanitizeSegmentoNombre(String(turno.placas ?? 'sin-placa'));
+    const fecha = this.formatFechaArchivo(turno.fechaApertura as Date | null | undefined);
+    return `reporte-turno_${fecha}_${placa}.pdf`;
+  }
+
   async generarHtmlTurno(data: DatosTurnoPdf): Promise<string> {
     const imageUrls = this.collectImageUrls(data);
     const [imageSrcMap, direccionApertura, direccionCierre] = await Promise.all([
@@ -158,6 +164,8 @@ export class ReportesPdfService {
 
     const t = data.turno;
     const placa = escapeHtml(String(t.placas ?? '—'));
+    const fechaInicio = escapeHtml(this.formatFechaSolo(t.fechaApertura as Date | null));
+    const tituloReporte = `Reporte de turno ${fechaInicio} — Placa: ${placa}`;
     const logoSrc = escapeHtml(this.reporteImagenService.getLogoDataUri());
     const body = `
 ${this.estilosBase()}
@@ -167,7 +175,7 @@ ${this.estilosBase()}
       <img src="${logoSrc}" alt="Spring Telecom" class="header-logo" />
     </div>
     <div class="header-text">
-      <h1>Reporte de turno Placa: ${placa}</h1>
+      <h1>${tituloReporte}</h1>
       <p class="sub">Generado: ${escapeHtml(this.formatFecha(new Date()))}</p>
     </div>
   </div>
@@ -211,7 +219,7 @@ ${this.seccionBitacora('Bitácora de cierre', t.bitacoraCierre, imageSrcMap)}
 
 <footer class="footer">ShiftControl — Reporte generado automáticamente</footer>
 `;
-    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>Reporte de turno Placa: ${placa}</title></head><body>${body}</body></html>`;
+    return `<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"/><title>${tituloReporte}</title></head><body>${body}</body></html>`;
   }
 
   private collectImageUrls(data: DatosTurnoPdf): string[] {
@@ -356,6 +364,76 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: #0E2
       return '';
     }
     return `<tr><th>${escapeHtml(etiqueta)}</th><td>${img}</td></tr>`;
+  }
+
+  private sanitizeSegmentoNombre(valor: string): string {
+    const limpio = valor.trim().replace(/[^\w.-]+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    return limpio || 'sin-placa';
+  }
+
+  private formatFechaArchivo(fecha: Date | null | undefined): string {
+    if (fecha == null) {
+      return 'sin-fecha';
+    }
+    const d = new Date(fecha);
+    if (Number.isNaN(d.getTime())) {
+      return 'sin-fecha';
+    }
+    const partes = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(d);
+    const get = (tipo: Intl.DateTimeFormatPartTypes) =>
+      partes.find((p) => p.type === tipo)?.value ?? '00';
+    return `${get('year')}-${get('month')}-${get('day')}`;
+  }
+
+  private formatFechaSolo(fecha: Date | null | undefined): string {
+    if (fecha == null) {
+      return 'N/A';
+    }
+    try {
+      const d = new Date(fecha);
+      if (Number.isNaN(d.getTime())) {
+        return 'N/A';
+      }
+
+      const partes = new Intl.DateTimeFormat('es-MX', {
+        timeZone: 'America/Mexico_City',
+        weekday: 'long',
+        day: 'numeric',
+        month: 'numeric',
+        year: '2-digit',
+      }).formatToParts(d);
+
+      const diaSemanaRaw =
+        partes.find((p) => p.type === 'weekday')?.value.toLowerCase().replace(/\./g, '') ?? '';
+      const dia = partes.find((p) => p.type === 'day')?.value ?? '';
+      const mesIndex = Number(partes.find((p) => p.type === 'month')?.value) - 1;
+      const anio = partes.find((p) => p.type === 'year')?.value ?? '';
+
+      const diasSemana: Record<string, string> = {
+        domingo: 'Dom',
+        lunes: 'Lun',
+        martes: 'Mar',
+        miercoles: 'Mié',
+        miércoles: 'Mié',
+        jueves: 'Jue',
+        viernes: 'Vie',
+        sabado: 'Sáb',
+        sábado: 'Sáb',
+      };
+      const meses = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+
+      const diaSemana = diasSemana[diaSemanaRaw] ?? '—';
+      const mes = meses[mesIndex] ?? '—';
+
+      return `${diaSemana} ${dia} de ${mes} ${anio}`;
+    } catch {
+      return 'N/A';
+    }
   }
 
   private formatFecha(fecha: Date | null | undefined): string {

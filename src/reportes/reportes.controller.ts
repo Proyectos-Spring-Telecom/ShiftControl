@@ -76,7 +76,7 @@ export class ReportesController {
     const placasRaw = String((data.turno['placas'] as string | undefined) ?? 'N/A');
     const placas = escHtmlEmail(placasRaw);
     const asunto = dto.asunto ?? `Reporte de Turno #${id} — ${placasRaw}`;
-    const nombreArchivo = `reporte-turno-folio-${id}-${placas}.pdf`;
+    const nombreArchivo = this.reportesPdfService.buildNombreArchivoTurno(data.turno);
 
     const emailHtml = `
 <!DOCTYPE html>
@@ -211,9 +211,10 @@ export class ReportesController {
     const data = await this.reportesPdfService.obtenerDatosTurno(id, idCliente, req);
     const reportHtml = await this.reportesPdfService.generarHtmlTurno(data);
     const pdfBuffer = await this.puppeteerPdfService.convertir(reportHtml);
+    const nombreArchivo = this.reportesPdfService.buildNombreArchivoTurno(data.turno);
     res.set({
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `attachment; filename="reporte-turno-${id}.pdf"`,
+      'Content-Disposition': `attachment; filename="${nombreArchivo}"`,
       'Content-Length': String(pdfBuffer.length),
     });
     res.send(pdfBuffer);
