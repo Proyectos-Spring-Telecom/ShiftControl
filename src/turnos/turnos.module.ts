@@ -16,7 +16,7 @@ import { CatTipoIncidente } from 'src/entities/CatTipoIncidente';
 import { IncidenciaGasolina } from 'src/entities/IncidenciaGasolina';
 import { TurnosController } from './turnos.controller';
 import { TurnosService } from './turnos.service';
-import { S3Module } from 'src/s3/s3.module';
+import { TurnosStorageModule } from 'src/storage/turnos-storage.module';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
 import { TenantFilterModule } from 'src/common/tenant-filter/tenant-filter.module';
@@ -40,7 +40,7 @@ import { BitacoraVehicularModule } from 'src/bitacora-vehicular/bitacora-vehicul
       CatTipoIncidente,
       IncidenciaGasolina,
     ]),
-    S3Module,
+    TurnosStorageModule,
     EndpointProxyModule,
     VehiculosModule,
     TenantFilterModule,

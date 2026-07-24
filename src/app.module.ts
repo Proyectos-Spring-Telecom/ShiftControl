@@ -41,6 +41,8 @@ import Joi from 'joi';
         AWS_SECRET_ACCESS_KEY: Joi.string().required(),
         AWS_S3_BUCKET: Joi.string().required(),
         UPLOAD_MAX_SIZE: Joi.string().required(),
+        TURNOS_STORAGE_PATH: Joi.string().required(),
+        TURNOS_PUBLIC_URL: Joi.string().uri().required(),
         PDF_IMAGE_MAX_WIDTH: Joi.number().default(800),
         PDF_IMAGE_QUALITY: Joi.number().min(1).max(100).default(75),
         HOST: Joi.string().required(),

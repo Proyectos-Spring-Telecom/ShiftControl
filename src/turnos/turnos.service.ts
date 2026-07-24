@@ -44,10 +44,12 @@ import {
 import {
   EnumEstatusTurno,
   EstatusEnum,
-  EnumModulos,
   EnumTipoBitacoraVehiculo,
 } from 'src/common/estatus.enum';
-import { S3Service } from 'src/s3/s3.service';
+import {
+  TurnosStorageService,
+  type StoredTurnoFile,
+} from 'src/storage/turnos-storage.service';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { EndpointProxyService } from 'src/integration/endpoint-proxy.service';
 import { TenantFilterService } from 'src/common/tenant-filter/tenant-filter.service';
@@ -193,7 +195,7 @@ export class TurnosService {
     private readonly catTipoIncidenteRepository: Repository<CatTipoIncidente>,
     @InjectRepository(IncidenciaGasolina)
     private readonly incidenciaGasolinaRepository: Repository<IncidenciaGasolina>,
-    private readonly s3Service: S3Service,
+    private readonly turnosStorage: TurnosStorageService,
     private readonly vehiculosService: VehiculosService,
     private readonly endpointProxy: EndpointProxyService,
     private readonly tenantFilter: TenantFilterService,
@@ -397,17 +399,23 @@ export class TurnosService {
   }
 
   /**
-   * Sube un archivo a S3 si se envió. Retorna la URL o null.
+   * Guarda archivo en disco local bajo `{STORAGE}/{idTurno}/{uuid}.ext`.
+   * Retorna null si no hay archivo.
    */
   private async procesarArchivo(
     file: Express.Multer.File | undefined,
-    folder: string,
-    idUser: number,
-    idModule: number,
-  ): Promise<string | null> {
+    idTurno: number,
+  ): Promise<StoredTurnoFile | null> {
     if (!file) return null;
-    const { url } = await this.s3Service.uploadFile(file, folder, idUser, idModule);
-    return url;
+    return this.turnosStorage.save(file, idTurno);
+  }
+
+  private assertUrlLength(url: string, campo: string): void {
+    if (url.length > 500) {
+      throw new BadRequestException(
+        `La URL de ${campo} supera 500 caracteres (límite de columna en base de datos)`,
+      );
+    }
   }
 
   async create(
@@ -457,25 +465,6 @@ export class TurnosService {
         throw new BadRequestException('Este vehículo ya tiene un turno activo');
       }
 
-      const urlArchivo = await this.procesarArchivo(
-        evidenciaAperturaFile,
-        'Turnos',
-        idUser,
-        EnumModulos.TURNOS,
-      );
-
-      const evidenciaUrl = urlArchivo ?? (dto.evidenciaAperturaUrl?.trim() || null);
-      if (!evidenciaUrl) {
-        throw new BadRequestException(
-          'No se pudo obtener URL de evidencia (subida S3 o evidenciaAperturaUrl)',
-        );
-      }
-      if (evidenciaUrl.length > 500) {
-        throw new BadRequestException(
-          'La URL de evidencia supera 500 caracteres (límite de columna en base de datos)',
-        );
-      }
-
       const { saved, idBitacoraApertura } = await this.repository.manager.transaction(
         async (manager) => {
           const turnoRepo = manager.getRepository(Turnos);
@@ -487,7 +476,7 @@ export class TurnosService {
             idUsuario,
             latitudApertura: dto.latitud ?? null,
             longitudApertura: dto.longitud ?? null,
-            evidenciaApertura: evidenciaUrl,
+            evidenciaApertura: null,
             idEstatusTurno: EnumEstatusTurno.EN_CURSO,
             fechaApertura: new Date(Date.now()),
             estatus: EstatusEnum.ACTIVO,
@@ -514,6 +503,35 @@ export class TurnosService {
           };
         },
       );
+
+      const writtenPaths: string[] = [];
+      try {
+        const stored = await this.procesarArchivo(
+          evidenciaAperturaFile,
+          Number(saved.id),
+        );
+        let evidenciaUrl = stored?.publicUrl ?? null;
+        if (stored?.absolutePath) {
+          writtenPaths.push(stored.absolutePath);
+        }
+        if (!evidenciaUrl) {
+          evidenciaUrl = dto.evidenciaAperturaUrl?.trim() || null;
+        }
+
+        if (!evidenciaUrl) {
+          throw new BadRequestException(
+            'No se pudo obtener URL de evidencia (almacenamiento local o evidenciaAperturaUrl)',
+          );
+        }
+        this.assertUrlLength(evidenciaUrl, 'evidencia');
+
+        await this.repository.update(saved.id, {
+          evidenciaApertura: evidenciaUrl,
+        });
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
+      }
 
       const placaParaNext = vehiculo.placas?.trim() ?? '';
       const vehiculoPorPlaca = placaParaNext
@@ -583,83 +601,69 @@ export class TurnosService {
         );
       }
 
-      const url1 = await this.procesarArchivo(
-        foto1,
-        'turnos/incidencias',
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!url1) {
-        throw new BadRequestException('No se pudo subir fotoEvidencia1');
-      }
-      if (url1.length > 500) {
-        throw new BadRequestException(
-          'La URL de fotoEvidencia1 supera 500 caracteres (límite de columna en base de datos)',
-        );
-      }
-
-      let fotoEvidencia2: string | null = null;
-      const foto2 = files.fotoEvidencia2?.[0];
-      if (foto2?.buffer?.length) {
-        const u2 = await this.procesarArchivo(
-          foto2,
-          'turnos/incidencias',
-          idUser,
-          EnumModulos.TURNOS,
-        );
-        if (u2 && u2.length > 500) {
-          throw new BadRequestException(
-            'La URL de fotoEvidencia2 supera 500 caracteres (límite de columna en base de datos)',
-          );
+      const writtenPaths: string[] = [];
+      try {
+        const stored1 = await this.procesarArchivo(foto1, Number(turno.id));
+        if (!stored1) {
+          throw new BadRequestException('No se pudo guardar fotoEvidencia1');
         }
-        fotoEvidencia2 = u2;
-      }
+        writtenPaths.push(stored1.absolutePath);
+        this.assertUrlLength(stored1.publicUrl, 'fotoEvidencia1');
 
-      let fotoEvidencia3: string | null = null;
-      const foto3 = files.fotoEvidencia3?.[0];
-      if (foto3?.buffer?.length) {
-        const u3 = await this.procesarArchivo(
-          foto3,
-          'turnos/incidencias/accidente',
-          idUser,
-          EnumModulos.TURNOS,
-        );
-        if (u3 && u3.length > 500) {
-          throw new BadRequestException(
-            'La URL de fotoEvidencia3 supera 500 caracteres (límite de columna en base de datos)',
-          );
+        let fotoEvidencia2: string | null = null;
+        const foto2 = files.fotoEvidencia2?.[0];
+        if (foto2?.buffer?.length) {
+          const u2 = await this.procesarArchivo(foto2, Number(turno.id));
+          if (u2) {
+            writtenPaths.push(u2.absolutePath);
+            this.assertUrlLength(u2.publicUrl, 'fotoEvidencia2');
+            fotoEvidencia2 = u2.publicUrl;
+          }
         }
-        fotoEvidencia3 = u3;
+
+        let fotoEvidencia3: string | null = null;
+        const foto3 = files.fotoEvidencia3?.[0];
+        if (foto3?.buffer?.length) {
+          const u3 = await this.procesarArchivo(foto3, Number(turno.id));
+          if (u3) {
+            writtenPaths.push(u3.absolutePath);
+            this.assertUrlLength(u3.publicUrl, 'fotoEvidencia3');
+            fotoEvidencia3 = u3.publicUrl;
+          }
+        }
+
+        const insertResult = await this.incidenciaAccidenteRepository.insert({
+          idTurno: turno.id,
+          idCliente,
+          idVehiculo: turno.idVehiculo,
+          idCatTipoIncidente,
+          descripcion: dto.descripcion.trim(),
+          fotoEvidencia1: stored1.publicUrl,
+          fotoEvidencia2,
+          fotoEvidencia3,
+          latitud: dto.latitud,
+          longitud: dto.longitud,
+          estatus: EstatusEnum.ACTIVO,
+        });
+        const idNuevo = Number(insertResult.identifiers[0].id);
+        const placas = turno.vehiculo?.placas?.trim() ?? '';
+
+        return {
+          status: 'success',
+          message: 'Incidencia de accidente registrada correctamente',
+          data: {
+            id: idNuevo,
+            idTurno: Number(turno.id),
+            idVehiculo: Number(turno.idVehiculo),
+            nombre: placas
+              ? `Incidencia #${idNuevo} — Turno #${turno.id} — ${placas}`
+              : `Incidencia #${idNuevo} — Turno #${turno.id}`,
+          },
+        };
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
       }
-
-      const insertResult = await this.incidenciaAccidenteRepository.insert({
-        idTurno: turno.id,
-        idCliente,
-        idVehiculo: turno.idVehiculo,
-        idCatTipoIncidente,
-        descripcion: dto.descripcion.trim(),
-        fotoEvidencia1: url1,
-        fotoEvidencia2,
-        fotoEvidencia3,
-        latitud: dto.latitud,
-        longitud: dto.longitud,
-        estatus: EstatusEnum.ACTIVO,
-      });
-      const idNuevo = Number(insertResult.identifiers[0].id);
-      const placas = turno.vehiculo?.placas?.trim() ?? '';
-
-      return {
-        status: 'success',
-        message: 'Incidencia de accidente registrada correctamente',
-        data: {
-          id: idNuevo,
-          idTurno: Number(turno.id),
-          idVehiculo: Number(turno.idVehiculo),
-          nombre: placas
-            ? `Incidencia #${idNuevo} — Turno #${turno.id} — ${placas}`
-            : `Incidencia #${idNuevo} — Turno #${turno.id}`,
-        },
-      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -678,7 +682,6 @@ export class TurnosService {
       fotoBomba?: Express.Multer.File[];
     },
   ): Promise<ApiCrudResponse> {
-    const folderGasolina = 'turnos/incidencias/gasolina';
     try {
       const fotoAntes = files.fotoTableroAntes?.[0];
       const fotoBomba = files.fotoBomba?.[0];
@@ -706,88 +709,72 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const urlAntes = await this.procesarArchivo(
-        fotoAntes,
-        folderGasolina,
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!urlAntes) {
-        throw new BadRequestException('No se pudo subir fotoTableroAntes');
-      }
-      if (urlAntes.length > 500) {
-        throw new BadRequestException(
-          'La URL de fotoTableroAntes supera 500 caracteres (límite de columna en base de datos)',
-        );
-      }
-
-      const urlBomba = await this.procesarArchivo(
-        fotoBomba,
-        folderGasolina,
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!urlBomba) {
-        throw new BadRequestException('No se pudo subir fotoBomba');
-      }
-      if (urlBomba.length > 500) {
-        throw new BadRequestException(
-          'La URL de fotoBomba supera 500 caracteres (límite de columna en base de datos)',
-        );
-      }
-
-      let fotoTableroDespues: string | null = null;
-      const fotoDespues = files.fotoTableroDespues?.[0];
-      if (fotoDespues?.buffer?.length) {
-        const u = await this.procesarArchivo(
-          fotoDespues,
-          folderGasolina,
-          idUser,
-          EnumModulos.TURNOS,
-        );
-        if (u && u.length > 500) {
-          throw new BadRequestException(
-            'La URL de fotoTableroDespues supera 500 caracteres (límite de columna en base de datos)',
-          );
+      const writtenPaths: string[] = [];
+      try {
+        const storedAntes = await this.procesarArchivo(fotoAntes, Number(turno.id));
+        if (!storedAntes) {
+          throw new BadRequestException('No se pudo guardar fotoTableroAntes');
         }
-        fotoTableroDespues = u;
+        writtenPaths.push(storedAntes.absolutePath);
+        this.assertUrlLength(storedAntes.publicUrl, 'fotoTableroAntes');
+
+        const storedBomba = await this.procesarArchivo(fotoBomba, Number(turno.id));
+        if (!storedBomba) {
+          throw new BadRequestException('No se pudo guardar fotoBomba');
+        }
+        writtenPaths.push(storedBomba.absolutePath);
+        this.assertUrlLength(storedBomba.publicUrl, 'fotoBomba');
+
+        let fotoTableroDespues: string | null = null;
+        const fotoDespues = files.fotoTableroDespues?.[0];
+        if (fotoDespues?.buffer?.length) {
+          const u = await this.procesarArchivo(fotoDespues, Number(turno.id));
+          if (u) {
+            writtenPaths.push(u.absolutePath);
+            this.assertUrlLength(u.publicUrl, 'fotoTableroDespues');
+            fotoTableroDespues = u.publicUrl;
+          }
+        }
+
+        const observaciones =
+          dto.observaciones != null && String(dto.observaciones).trim() !== ''
+            ? String(dto.observaciones).trim()
+            : null;
+
+        const insertResult = await this.incidenciaGasolinaRepository.insert({
+          idTurno: turno.id,
+          idCliente,
+          idVehiculo: turno.idVehiculo,
+          fotoTableroAntes: storedAntes.publicUrl,
+          fotoTableroDespues,
+          fotoBomba: storedBomba.publicUrl,
+          kilometraje: dto.kilometraje,
+          litrosCargados: dto.litrosCargados,
+          totalPagado: dto.totalPagado,
+          observaciones,
+          latitud: dto.latitud,
+          longitud: dto.longitud,
+          estatus: EstatusEnum.ACTIVO,
+        });
+        const idNuevo = Number(insertResult.identifiers[0].id);
+        const placas = turno.vehiculo?.placas?.trim() ?? '';
+
+        return {
+          status: 'success',
+          message: 'Registro de combustible exitoso.',
+          data: {
+            id: idNuevo,
+            idTurno: Number(turno.id),
+            idVehiculo: Number(turno.idVehiculo),
+            nombre: placas
+              ? `Gasolina #${idNuevo} — Turno #${turno.id} — ${placas}`
+              : `Gasolina #${idNuevo} — Turno #${turno.id}`,
+          },
+        };
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
       }
-
-      const observaciones =
-        dto.observaciones != null && String(dto.observaciones).trim() !== ''
-          ? String(dto.observaciones).trim()
-          : null;
-
-      const insertResult = await this.incidenciaGasolinaRepository.insert({
-        idTurno: turno.id,
-        idCliente,
-        idVehiculo: turno.idVehiculo,
-        fotoTableroAntes: urlAntes,
-        fotoTableroDespues,
-        fotoBomba: urlBomba,
-        kilometraje: dto.kilometraje,
-        litrosCargados: dto.litrosCargados,
-        totalPagado: dto.totalPagado,
-        observaciones,
-        latitud: dto.latitud,
-        longitud: dto.longitud,
-        estatus: EstatusEnum.ACTIVO,
-      });
-      const idNuevo = Number(insertResult.identifiers[0].id);
-      const placas = turno.vehiculo?.placas?.trim() ?? '';
-
-      return {
-        status: 'success',
-        message: 'Registro de combustible exitoso.',
-        data: {
-          id: idNuevo,
-          idTurno: Number(turno.id),
-          idVehiculo: Number(turno.idVehiculo),
-          nombre: placas
-            ? `Gasolina #${idNuevo} — Turno #${turno.id} — ${placas}`
-            : `Gasolina #${idNuevo} — Turno #${turno.id}`,
-        },
-      };
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -834,47 +821,49 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const urlFoto = await this.procesarArchivo(
-        fotoTableroFile,
-        'tablero',
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!urlFoto) {
-        throw new BadRequestException('No se pudo subir la imagen del tablero');
-      }
-      if (urlFoto.length > 500) {
-        throw new BadRequestException(
-          'La URL de la foto supera 500 caracteres (límite de columna en base de datos)',
+      const writtenPaths: string[] = [];
+      try {
+        const stored = await this.procesarArchivo(
+          fotoTableroFile,
+          Number(turno.id),
         );
-      }
+        if (!stored) {
+          throw new BadRequestException('No se pudo guardar la imagen del tablero');
+        }
+        writtenPaths.push(stored.absolutePath);
+        this.assertUrlLength(stored.publicUrl, 'foto');
 
-      const idTablero = await this.repository.manager.transaction(async (manager) => {
-        const tableroRepo = manager.getRepository(Tablero);
-        const bvRepo = manager.getRepository(BitacoraVehiculo);
+        const idTablero = await this.repository.manager.transaction(async (manager) => {
+          const tableroRepo = manager.getRepository(Tablero);
+          const bvRepo = manager.getRepository(BitacoraVehiculo);
 
-        const tablero = tableroRepo.create({
-          fotoTablero: urlFoto,
-          idTurno: turno.id,
-          idVehiculo: bitacora.idVehiculo,
-          kmActual: dto.kilometraje,
+          const tablero = tableroRepo.create({
+            fotoTablero: stored.publicUrl,
+            idTurno: turno.id,
+            idVehiculo: bitacora.idVehiculo,
+            kmActual: dto.kilometraje,
+          });
+          const savedTablero = await tableroRepo.save(tablero);
+
+          await bvRepo.update(bitacora.id, { idTablero: savedTablero.id });
+
+          return Number(savedTablero.id);
         });
-        const savedTablero = await tableroRepo.save(tablero);
 
-        await bvRepo.update(bitacora.id, { idTablero: savedTablero.id });
-
-        return Number(savedTablero.id);
-      });
-
-      return {
-        status: 'success',
-        message: 'Tablero registrado correctamente',
-        data: {
-          id: idTablero,
-          nombre: `Tablero #${idTablero}`,
-          idBitacoraVehiculo: dto.idBitacoraVehiculo,
-        },
-      };
+        return {
+          status: 'success',
+          message: 'Tablero registrado correctamente',
+          data: {
+            id: idTablero,
+            idBitacoraVehiculo: Number(bitacora.id),
+            idTurno: Number(turno.id),
+            nombre: `Tablero #${idTablero}`,
+          },
+        };
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
+      }
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1307,49 +1296,50 @@ export class TurnosService {
         throw new BadRequestException('El turno no está en curso');
       }
 
-      const urlFoto = await this.procesarArchivo(
-        evidenciaFotograficaFile,
-        'inspeccion-vehiculo-ex',
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!urlFoto) {
-        throw new BadRequestException('No se pudo subir la imagen de evidencia');
-      }
-      if (urlFoto.length > 500) {
-        throw new BadRequestException(
-          'La URL de la evidencia supera 500 caracteres (límite de columna en base de datos)',
+      const writtenPaths: string[] = [];
+      try {
+        const stored = await this.procesarArchivo(
+          evidenciaFotograficaFile,
+          Number(turno.id),
         );
-      }
+        if (!stored) {
+          throw new BadRequestException('No se pudo guardar la imagen de evidencia');
+        }
+        writtenPaths.push(stored.absolutePath);
+        this.assertUrlLength(stored.publicUrl, 'evidencia');
 
-      const idInspeccion = await this.repository.manager.transaction(async (manager) => {
-        const inspRepo = manager.getRepository(InspeccionVehiculoEx);
-        const row = inspRepo.create({
-          idTurno: bitacora.idTurno,
-          idBitacoraVehiculo: bitacora.id,
-          idVehiculo: bitacora.idVehiculo,
-          idCatVistaVehiculo: dto.idCatVistaVehiculo,
-          partesVehiculoEx: dto.partesVehiculoEx,
-          idCatTipoDano: dto.idCatTipoDano,
-          idCatGradoSeveridad: dto.idCatGradoSeveridad,
-          evidenciaFotografica: urlFoto,
+        const idInspeccion = await this.repository.manager.transaction(async (manager) => {
+          const inspRepo = manager.getRepository(InspeccionVehiculoEx);
+          const row = inspRepo.create({
+            idTurno: bitacora.idTurno,
+            idBitacoraVehiculo: bitacora.id,
+            idVehiculo: bitacora.idVehiculo,
+            idCatVistaVehiculo: dto.idCatVistaVehiculo,
+            partesVehiculoEx: dto.partesVehiculoEx,
+            idCatTipoDano: dto.idCatTipoDano,
+            idCatGradoSeveridad: dto.idCatGradoSeveridad,
+            evidenciaFotografica: stored.publicUrl,
+          });
+          const saved = await inspRepo.save(row);
+          return Number(saved.id);
         });
-        const saved = await inspRepo.save(row);
-        return Number(saved.id);
-      });
 
-      return {
-        status: 'success',
-        message: 'Inspección exterior del vehículo registrada correctamente',
-        data: {
-          id: idInspeccion,
-          nombre: `InspeccionVehiculoEx #${idInspeccion}`,
-          idInspeccionVehiculoEx: idInspeccion,
-          idBitacoraVehiculo: dto.idBitacoraVehiculo,
-          idTurno: Number(bitacora.idTurno),
-          idVehiculo: Number(bitacora.idVehiculo),
-        },
-      };
+        return {
+          status: 'success',
+          message: 'Inspección exterior del vehículo registrada correctamente',
+          data: {
+            id: idInspeccion,
+            nombre: `InspeccionVehiculoEx #${idInspeccion}`,
+            idInspeccionVehiculoEx: idInspeccion,
+            idBitacoraVehiculo: dto.idBitacoraVehiculo,
+            idTurno: Number(bitacora.idTurno),
+            idVehiculo: Number(bitacora.idVehiculo),
+          },
+        };
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
+      }
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;
@@ -1913,76 +1903,77 @@ export class TurnosService {
         throw new BadRequestException('El turno no tiene cliente asociado');
       }
 
-      const urlEvidencia = await this.procesarArchivo(
-        evidenciaCierreFile,
-        'Turnos',
-        idUser,
-        EnumModulos.TURNOS,
-      );
-      if (!urlEvidencia) {
-        throw new BadRequestException(
-          'No se pudo subir la imagen de evidencia de cierre',
+      const writtenPaths: string[] = [];
+      try {
+        const stored = await this.procesarArchivo(
+          evidenciaCierreFile,
+          Number(turno.id),
         );
-      }
-      if (urlEvidencia.length > 500) {
-        throw new BadRequestException(
-          'La URL de evidencia supera 500 caracteres (límite de columna en base de datos)',
-        );
-      }
+        if (!stored) {
+          throw new BadRequestException(
+            'No se pudo guardar la imagen de evidencia de cierre',
+          );
+        }
+        writtenPaths.push(stored.absolutePath);
+        this.assertUrlLength(stored.publicUrl, 'evidencia');
 
-      const fechaCierre = new Date(Date.now());
-      const apertura = turno.fechaApertura ? new Date(turno.fechaApertura) : null;
-      const duracion =
-        apertura != null && !Number.isNaN(apertura.getTime())
-          ? msToMysqlTime(fechaCierre.getTime() - apertura.getTime())
-          : null;
+        const fechaCierre = new Date(Date.now());
+        const apertura = turno.fechaApertura ? new Date(turno.fechaApertura) : null;
+        const duracion =
+          apertura != null && !Number.isNaN(apertura.getTime())
+            ? msToMysqlTime(fechaCierre.getTime() - apertura.getTime())
+            : null;
 
-      const idVehiculoTurno = turno.idVehiculo;
-      const idClienteTurno = turno.idCliente;
+        const idVehiculoTurno = turno.idVehiculo;
+        const idClienteTurno = turno.idCliente;
 
-      const { idBitacoraCierre: idBitacoraCierreNuevo, placas } =
-        await this.repository.manager.transaction(async (manager) => {
-          const turnoRepo = manager.getRepository(Turnos);
-          const bitacoraRepo = manager.getRepository(BitacoraVehiculo);
+        const { idBitacoraCierre: idBitacoraCierreNuevo, placas } =
+          await this.repository.manager.transaction(async (manager) => {
+            const turnoRepo = manager.getRepository(Turnos);
+            const bitacoraRepo = manager.getRepository(BitacoraVehiculo);
 
-          const insertResult = await bitacoraRepo.insert({
-            idVehiculo: idVehiculoTurno,
-            idCliente: idClienteTurno,
-            idTurno: turno.id,
-            tipo: EnumTipoBitacoraVehiculo.CIERRE,
-            estatus: EstatusEnum.ACTIVO,
+            const insertResult = await bitacoraRepo.insert({
+              idVehiculo: idVehiculoTurno,
+              idCliente: idClienteTurno,
+              idTurno: turno.id,
+              tipo: EnumTipoBitacoraVehiculo.CIERRE,
+              estatus: EstatusEnum.ACTIVO,
+            });
+            const idBv = Number(insertResult.identifiers[0].id);
+
+            await turnoRepo.update(dto.idTurno, {
+              latitudCierre: dto.latitud,
+              longitudCierre: dto.longitud,
+              evidenciaCierre: stored.publicUrl,
+              fechaCierre,
+              duracion,
+              idBitacoraCierre: idBv,
+            });
+
+            const turnoResult = await turnoRepo.findOne({
+              where: { id: dto.idTurno, idCliente },
+              relations: ['vehiculo'],
+            });
+            return {
+              idBitacoraCierre: idBv,
+              placas: turnoResult?.vehiculo?.placas ?? '',
+            };
           });
-          const idBv = Number(insertResult.identifiers[0].id);
 
-          await turnoRepo.update(dto.idTurno, {
-            latitudCierre: dto.latitud,
-            longitudCierre: dto.longitud,
-            evidenciaCierre: urlEvidencia,
-            fechaCierre,
+        return {
+          status: 'success',
+          message: 'Turno cerrado correctamente',
+          data: {
+            id: dto.idTurno,
+            nombre: `Turno #${dto.idTurno} - ${placas}`,
+            idBitacoraCierre: idBitacoraCierreNuevo,
             duracion,
-            idBitacoraCierre: idBv,
-          });
-
-          const turnoResult = await turnoRepo.findOne({
-            where: { id: dto.idTurno, idCliente },
-            relations: ['vehiculo'],
-          });
-          return {
-            idBitacoraCierre: idBv,
-            placas: turnoResult?.vehiculo?.placas ?? '',
-          };
-        });
-
-      return {
-        status: 'success',
-        message: 'Turno cerrado correctamente',
-        data: {
-          id: dto.idTurno,
-          nombre: `Turno #${dto.idTurno} - ${placas}`,
-          idBitacoraCierre: idBitacoraCierreNuevo,
-          duracion,
-        },
-      };
+          },
+        };
+      } catch (error) {
+        await this.turnosStorage.cleanup(writtenPaths);
+        throw error;
+      }
     } catch (error) {
       if (error instanceof HttpException) {
         throw error;

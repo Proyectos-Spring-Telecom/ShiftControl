@@ -10,6 +10,7 @@ import { MailModule } from 'src/mail/mail.module';
 import { EndpointProxyModule } from 'src/integration/endpoint-proxy.module';
 import { VehiculosModule } from 'src/vehiculos/vehiculos.module';
 import { UbicacionModule } from 'src/ubicacion/ubicacion.module';
+import { TurnosStorageModule } from 'src/storage/turnos-storage.module';
 import { ReportesController } from './reportes.controller';
 import { ReportesPdfService } from './reportes-pdf.service';
 import { PuppeteerPdfService } from './puppeteer-pdf.service';
@@ -29,6 +30,7 @@ import { ReporteImagenService } from './reporte-imagen.service';
     EndpointProxyModule,
     VehiculosModule,
     UbicacionModule,
+    TurnosStorageModule,
   ],
   controllers: [ReportesController],
   providers: [ReportesPdfService, PuppeteerPdfService, ReporteImagenService],

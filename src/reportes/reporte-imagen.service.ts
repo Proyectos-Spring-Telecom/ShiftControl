@@ -3,12 +3,15 @@ import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
 import sharp from 'sharp';
+import { TurnosStorageService } from 'src/storage/turnos-storage.service';
 
 const LOGO_FILE = 'spring-logo-vertical.png';
 
 @Injectable()
 export class ReporteImagenService {
   private logoDataUri: string | null = null;
+
+  constructor(private readonly turnosStorage: TurnosStorageService) {}
 
   getLogoDataUri(): string {
     if (this.logoDataUri) {
@@ -82,13 +85,11 @@ export class ReporteImagenService {
     quality: number,
   ): Promise<string | null> {
     try {
-      const response = await axios.get<ArrayBuffer>(url, {
-        responseType: 'arraybuffer',
-        timeout: 30_000,
-        maxContentLength: 25 * 1024 * 1024,
-        validateStatus: (status) => status >= 200 && status < 300,
-      });
-      const compressed = await sharp(Buffer.from(response.data))
+      const buffer = await this.loadImageBuffer(url);
+      if (!buffer) {
+        return url;
+      }
+      const compressed = await sharp(buffer)
         .rotate()
         .resize({ width: maxWidth, withoutEnlargement: true })
         .jpeg({ quality, mozjpeg: true })
@@ -98,5 +99,20 @@ export class ReporteImagenService {
     } catch {
       return url;
     }
+  }
+
+  private async loadImageBuffer(url: string): Promise<Buffer | null> {
+    const localPath = this.turnosStorage.resolveLocalPathFromPublicUrl(url);
+    if (localPath && fs.existsSync(localPath)) {
+      return fs.promises.readFile(localPath);
+    }
+
+    const response = await axios.get<ArrayBuffer>(url, {
+      responseType: 'arraybuffer',
+      timeout: 30_000,
+      maxContentLength: 25 * 1024 * 1024,
+      validateStatus: (status) => status >= 200 && status < 300,
+    });
+    return Buffer.from(response.data);
   }
 }

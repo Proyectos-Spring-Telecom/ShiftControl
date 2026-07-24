@@ -1,14 +1,30 @@
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { HttpStringResponseFilter } from './utils/http-string-response.filter';
+import * as path from 'path';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   // Prefijo global: todas las rutas bajo /api (auth, mesas, clientes, etc.)
   app.setGlobalPrefix('api');
+
+  // Sirve imágenes de turnos desde disco local (TURNOS_STORAGE_PATH → TURNOS_PUBLIC_URL)
+  const turnosStoragePath = process.env.TURNOS_STORAGE_PATH?.trim();
+  const turnosPublicUrl = process.env.TURNOS_PUBLIC_URL?.trim();
+  if (turnosStoragePath && turnosPublicUrl) {
+    try {
+      const publicPathname = new URL(turnosPublicUrl).pathname.replace(/\/+$/, '') || '/';
+      app.useStaticAssets(path.resolve(turnosStoragePath), {
+        prefix: publicPathname,
+      });
+    } catch {
+      // Si TURNOS_PUBLIC_URL no es URL válida, no montamos estáticos
+    }
+  }
 
   app.useGlobalFilters(new HttpStringResponseFilter());
 

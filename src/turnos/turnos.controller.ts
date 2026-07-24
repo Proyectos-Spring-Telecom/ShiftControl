@@ -140,7 +140,7 @@ export class TurnosController {
         evidenciaApertura: {
           type: 'string',
           format: 'binary',
-          description: 'Imagen de evidencia de apertura (sube a S3)',
+          description: 'Imagen de evidencia de apertura (disco local)',
         },
       },
     },
@@ -289,7 +289,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar incidencia de accidente / daño durante turno en curso',
     description:
-      'multipart: idTurno, descripcion, latitud, longitud y fotoEvidencia1 obligatorios. idCliente e idVehiculo se toman del token y del turno. Fotos 2 y 3 e idCatTipoIncidente opcionales. S3: carpeta turnos/incidencias.',
+      'multipart: idTurno, descripcion, latitud, longitud y fotoEvidencia1 obligatorios. idCliente e idVehiculo se toman del token y del turno. Fotos 2 y 3 e idCatTipoIncidente opcionales. Imágenes en disco: {TURNOS_STORAGE_PATH}/{idTurno}/{uuid}.ext.',
   })
   @ApiBody({
     schema: {
@@ -353,7 +353,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar recarga de combustible durante turno en curso',
     description:
-      'multipart: idTurno, latitud, longitud, kilometraje, litrosCargados, totalPagado, fotoTableroAntes y fotoBomba obligatorios. idCliente e idVehiculo desde token y turno. fotoTableroDespues y observaciones opcionales. S3: turnos/incidencias/gasolina.',
+      'multipart: idTurno, latitud, longitud, kilometraje, litrosCargados, totalPagado, fotoTableroAntes y fotoBomba obligatorios. idCliente e idVehiculo desde token y turno. fotoTableroDespues y observaciones opcionales. Imágenes en disco: {TURNOS_STORAGE_PATH}/{idTurno}/{uuid}.ext.',
   })
   @ApiBody({
     schema: {
@@ -431,7 +431,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar lectura de tablero (bitácora en turno en curso)',
     description:
-      'multipart/form-data: idBitacoraVehiculo, kilometraje, imagen fotoTablero. Sube a S3 carpeta tablero y enlaza BitacoraVehiculo.IdTablero.',
+      'multipart/form-data: idBitacoraVehiculo, kilometraje, imagen fotoTablero. Guarda en disco local y enlaza BitacoraVehiculo.IdTablero.',
   })
   @ApiBody({
     schema: {
@@ -772,7 +772,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Registrar inspección exterior de daños (bitácora en turno en curso)',
     description:
-      'multipart/form-data: idBitacoraVehiculo, ids de catálogo y evidenciaFotografica. idTurno e idVehiculo se resuelven desde la bitácora. Sube a S3 carpeta inspeccion-vehiculo-ex; permite varias filas por bitácora.',
+      'multipart/form-data: idBitacoraVehiculo, ids de catálogo y evidenciaFotografica. idTurno e idVehiculo se resuelven desde la bitácora. Guarda en disco local; permite varias filas por bitácora.',
   })
   @ApiBody({
     schema: {
@@ -1051,7 +1051,7 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Cerrar turno con geolocalización y evidencia',
     description:
-      'multipart/form-data: idTurno (debe coincidir con :id), latitud, longitud, evidenciaCierre. Sube imagen a S3 (módulo turnos), guarda LatitudCierre/LongitudCierre, FechaCierre, Duración (horas desde FechaApertura), BitacoraVehiculo de cierre (tipo 2) y marca turno como finalizado.',
+      'multipart/form-data: idTurno (debe coincidir con :id), latitud, longitud, evidenciaCierre. Guarda imagen en disco local, LatitudCierre/LongitudCierre, FechaCierre, Duración (horas desde FechaApertura), BitacoraVehiculo de cierre (tipo 2) y marca turno como finalizado.',
   })
   @ApiBody({
     schema: {

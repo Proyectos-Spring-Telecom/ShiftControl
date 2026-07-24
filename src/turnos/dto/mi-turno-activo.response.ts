@@ -7,7 +7,7 @@ export class MiTurnoActivoVehiculoDto {
   @ApiProperty({ example: 'NU-7653-B' })
   placas: string;
 
-  @ApiPropertyOptional({ example: 'https://bucket.s3.amazonaws.com/foto.jpg' })
+  @ApiPropertyOptional({ example: 'http://localhost:3003/files/turnos/15/uuid.jpg' })
   fotoFrente: string | null;
 
   @ApiProperty({ example: 11 })
