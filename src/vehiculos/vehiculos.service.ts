@@ -282,6 +282,23 @@ export class VehiculosService {
   }
 
   /**
+   * Baja lógica recibida por webhook: elimina la sombra local.
+   * No borra turnos históricos (solo dejan de resolverse joins a Vehiculos).
+   */
+  async removeShadow(id: number): Promise<void> {
+    if (!Number.isFinite(id) || id <= 0) {
+      this.logger.warn(`removeShadow omitido: id inválido ${id}`);
+      return;
+    }
+    const result = await this.vehiculosRepository.delete({ id });
+    if (result.affected && result.affected > 0) {
+      this.logger.log(`Vehículo sombra eliminado id=${id}`);
+    } else {
+      this.logger.log(`Vehículo sombra no existía id=${id}`);
+    }
+  }
+
+  /**
    * Sincroniza la tabla sombra desde una respuesta de lista de Next.
    * Se ejecuta en background (fire-and-forget) para no bloquear la respuesta.
    */

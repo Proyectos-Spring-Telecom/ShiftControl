@@ -1,10 +1,14 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import * as crypto from 'crypto';
 import { ConfigService } from '@nestjs/config';
 import { VehiculosService } from 'src/vehiculos/vehiculos.service';
 import { ClientesService } from 'src/clientes/clientes.service';
 
-/** Eventos que ShiftControl sabe procesar. */
+/** Eventos que ShiftControl sabe procesar (alineados con Next WebhookEmitter). */
 enum WebhookEvent {
   VEHICULO_CREATED = 'vehiculo.created',
   VEHICULO_UPDATED = 'vehiculo.updated',
@@ -13,7 +17,7 @@ enum WebhookEvent {
   CLIENTE_UPDATED = 'cliente.updated',
 }
 
-/** Payload que llega desde Next. */
+/** Payload que llega desde Next (envelope §2). */
 export interface WebhookPayload {
   event: string;
   timestamp: string;
@@ -38,7 +42,7 @@ export class WebhooksService {
 
   /**
    * Procesa un webhook recibido desde Next.
-   * 1. Valida la firma HMAC-SHA256
+   * 1. Valida la firma HMAC-SHA256 (orden fijo de claves)
    * 2. Identifica el evento
    * 3. Actualiza la tabla sombra correspondiente
    */
@@ -55,16 +59,16 @@ export class WebhooksService {
     switch (event) {
       case WebhookEvent.VEHICULO_CREATED:
       case WebhookEvent.VEHICULO_UPDATED:
-        await this.handleVehiculoChange(entityId, tenantId, data);
+        await this.handleVehiculoChange(entityId, tenantId, data ?? {});
         break;
 
       case WebhookEvent.VEHICULO_DELETED:
-        await this.handleVehiculoDeleted(entityId);
+        await this.handleVehiculoDeleted(entityId, tenantId, data ?? {});
         break;
 
       case WebhookEvent.CLIENTE_CREATED:
       case WebhookEvent.CLIENTE_UPDATED:
-        await this.handleClienteChange(entityId, data);
+        await this.handleClienteChange(entityId, data ?? {});
         break;
 
       default:
@@ -75,25 +79,76 @@ export class WebhooksService {
     return { status: 'ok', message: `Evento ${event} procesado` };
   }
 
-  /** Valida que la firma del payload coincida con WEBHOOK_SECRET. */
+  /**
+   * Valida HMAC-SHA256 reconstruyendo el unsigned con el orden del contrato:
+   * event → timestamp → tenantId → entityId → data
+   * (data de vehículo: placa, marcaNombre, modeloNombre, fotoFrente)
+   */
   private validateSignature(payload: WebhookPayload): void {
     if (!this.webhookSecret) {
-      this.logger.warn('WEBHOOK_SECRET no configurado — se omite validación de firma');
-      return;
+      this.logger.error('WEBHOOK_SECRET no configurado');
+      throw new UnauthorizedException('WEBHOOK_SECRET no configurado');
     }
 
-    const { signature, ...payloadSinFirma } = payload;
+    const unsigned = this.buildUnsignedPayload(payload);
     const expected = crypto
       .createHmac('sha256', this.webhookSecret)
-      .update(JSON.stringify(payloadSinFirma))
+      .update(JSON.stringify(unsigned))
       .digest('hex');
 
-    const sigBuf = Buffer.from(String(signature ?? ''), 'utf8');
+    const sigBuf = Buffer.from(String(payload.signature ?? ''), 'utf8');
     const expBuf = Buffer.from(expected, 'utf8');
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    if (
+      sigBuf.length !== expBuf.length ||
+      !crypto.timingSafeEqual(sigBuf, expBuf)
+    ) {
       this.logger.error('Firma de webhook inválida');
       throw new UnauthorizedException('Firma de webhook inválida');
     }
+  }
+
+  /** Objeto firmado por Next: claves en orden fijo. */
+  private buildUnsignedPayload(payload: WebhookPayload): Record<string, unknown> {
+    return {
+      event: payload.event,
+      timestamp: payload.timestamp,
+      tenantId: Number(payload.tenantId),
+      entityId: Number(payload.entityId),
+      data: this.buildDataForSigning(payload.event, payload.data),
+    };
+  }
+
+  /**
+   * Rearma `data` con el orden de claves del emisor Next.
+   * Vehículo: placa → marcaNombre → modeloNombre → fotoFrente
+   * Cliente: idPadre
+   */
+  private buildDataForSigning(
+    event: string,
+    data: Record<string, unknown> | null | undefined,
+  ): Record<string, unknown> {
+    const src = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+
+    if (event.startsWith('vehiculo.')) {
+      return {
+        placa: src['placa'] ?? '',
+        marcaNombre: src['marcaNombre'] ?? '',
+        modeloNombre: src['modeloNombre'] ?? '',
+        fotoFrente: src['fotoFrente'] ?? null,
+      };
+    }
+
+    if (event.startsWith('cliente.')) {
+      return {
+        idPadre: src['idPadre'] ?? null,
+      };
+    }
+
+    const out: Record<string, unknown> = {};
+    for (const key of Object.keys(src)) {
+      out[key] = src[key];
+    }
+    return out;
   }
 
   private async handleVehiculoChange(
@@ -101,22 +156,15 @@ export class WebhooksService {
     tenantId: number,
     data: Record<string, unknown>,
   ): Promise<void> {
-    const placasRaw = data?.placa ?? data?.placas;
-    const placas = placasRaw != null ? String(placasRaw).trim() : '';
+    const placas = this.pickPlaca(data);
     if (!placas) {
       this.logger.warn(`Webhook vehiculo sin placa: entityId=${entityId}`);
       return;
     }
 
-    const fotoFrente = this.pickOptionalString(
-      data.fotoFrente ?? data.FotoFrente ?? data.foto,
-    );
-    const marca = this.pickOptionalString(
-      data.marcaNombre ?? data.MarcaNombre ?? data.marca,
-    );
-    const modelo = this.pickOptionalString(
-      data.modeloNombre ?? data.ModeloNombre ?? data.modelo,
-    );
+    const marca = this.pickCatalogName(data['marcaNombre']);
+    const modelo = this.pickCatalogName(data['modeloNombre']);
+    const fotoFrente = this.pickFotoFrente(data['fotoFrente']);
 
     await this.vehiculosService.ensureShadow(
       entityId,
@@ -126,12 +174,24 @@ export class WebhooksService {
       marca,
       modelo,
     );
-    this.logger.log(`Vehículo sombra sincronizado id=${entityId} placas=${placas}`);
+    this.logger.log(
+      `Vehículo sombra sincronizado id=${entityId} placas=${placas}`,
+    );
   }
 
-  private async handleVehiculoDeleted(entityId: number): Promise<void> {
+  /**
+   * Baja lógica en Next (estatus 0/3/4/5): elimina la sombra local
+   * para que no se abran turnos nuevos. Los turnos históricos conservan IdVehiculo.
+   */
+  private async handleVehiculoDeleted(
+    entityId: number,
+    _tenantId: number,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    const placas = this.pickPlaca(data);
+    await this.vehiculosService.removeShadow(entityId);
     this.logger.log(
-      `Vehículo ${entityId} eliminado en Next — registro sombra se mantiene para histórico`,
+      `Vehículo sombra dado de baja (deleted) id=${entityId} placas=${placas || 'N/A'}`,
     );
   }
 
@@ -139,7 +199,7 @@ export class WebhooksService {
     entityId: number,
     data: Record<string, unknown>,
   ): Promise<void> {
-    const idPadreRaw = data?.idPadre;
+    const idPadreRaw = data?.['idPadre'];
     const idPadre =
       idPadreRaw != null && idPadreRaw !== ''
         ? Number(idPadreRaw)
@@ -148,14 +208,28 @@ export class WebhooksService {
       entityId,
       idPadre != null && Number.isFinite(idPadre) ? idPadre : null,
     );
-    this.logger.log(`Cliente sombra sincronizado id=${entityId} idPadre=${idPadre}`);
+    this.logger.log(
+      `Cliente sombra sincronizado id=${entityId} idPadre=${idPadre}`,
+    );
   }
 
-  private pickOptionalString(raw: unknown): string | null | undefined {
-    if (raw === undefined) {
-      return undefined;
+  private pickPlaca(data: Record<string, unknown>): string {
+    const raw = data['placa'];
+    return raw != null ? String(raw).trim() : '';
+  }
+
+  /** Catálogo: string; `""` → null en sombra. */
+  private pickCatalogName(raw: unknown): string | null {
+    if (raw == null) {
+      return null;
     }
-    if (raw === null) {
+    const s = String(raw).trim();
+    return s.length > 0 ? s : null;
+  }
+
+  /** fotoFrente: URL string o null (contrato). */
+  private pickFotoFrente(raw: unknown): string | null {
+    if (raw == null) {
       return null;
     }
     const s = String(raw).trim();

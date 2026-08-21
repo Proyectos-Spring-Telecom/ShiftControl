@@ -20,8 +20,10 @@ export class WebhooksController {
   @ApiOperation({
     summary: 'Receptor de webhooks de Next',
     description:
-      'Recibe notificaciones cuando una entidad cambia en Next (vehículo, cliente, etc.). ' +
-      'Autenticado por firma HMAC-SHA256 (`WEBHOOK_SECRET`), no por JWT.',
+      'Recibe notificaciones cuando cambia un vehículo o cliente en Next. ' +
+      'Envelope: event, timestamp, tenantId, entityId, data, signature. ' +
+      'Auth: HMAC-SHA256 del unsigned (orden fijo de claves) con WEBHOOK_SECRET; sin JWT. ' +
+      'Vehículo data: placa, marcaNombre, modeloNombre, fotoFrente. Cliente data: idPadre.',
   })
   @ApiResponse({ status: 200, description: 'Webhook procesado' })
   @ApiResponse({ status: 401, description: 'Firma inválida' })
