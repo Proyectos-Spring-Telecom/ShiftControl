@@ -54,18 +54,20 @@ export class TurnosStorageService implements OnModuleInit {
     idTurno: number,
   ): Promise<StoredTurnoFile> {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Archivo requerido');
+      throw new BadRequestException('Debe adjuntar el archivo requerido');
     }
     if (!Number.isFinite(idTurno) || idTurno <= 0) {
-      throw new BadRequestException('idTurno inválido para almacenamiento');
+      throw new BadRequestException('No se pudo asociar el archivo al turno');
     }
 
     const extension = ALLOWED_MIME[file.mimetype];
     if (!extension) {
-      throw new BadRequestException('Solo se permiten PNG, JPG, JPEG o PDF');
+      throw new BadRequestException('Solo se permiten archivos PNG, JPG, JPEG o PDF');
     }
     if (file.size >= this.maxSize) {
-      throw new BadRequestException('Archivo demasiado grande');
+      throw new BadRequestException(
+        'El archivo supera el tamaño máximo permitido',
+      );
     }
 
     const fileName = `${randomUUID()}.${extension}`;
@@ -79,7 +81,7 @@ export class TurnosStorageService implements OnModuleInit {
     } catch (err) {
       this.logger.error(`Error escribiendo archivo local: ${absolutePath}`, err);
       throw new InternalServerErrorException(
-        'No se pudo guardar el archivo en disco',
+        'No se pudo guardar el archivo. Intente nuevamente',
       );
     }
 

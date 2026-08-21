@@ -217,6 +217,7 @@ export class TurnosService {
       idUsuario: num(row.idUsuario),
       idBitacoraApertura: num(row.idBitacoraApertura),
       evidenciaApertura: (row.evidenciaApertura as string | null) ?? null,
+      evidenciaLicencia: (row.evidenciaLicencia as string | null) ?? null,
       longitudApertura: num(row.longitudApertura),
       latitudApertura: num(row.latitudApertura),
       fechaApertura: (row.fechaApertura as Date | null) ?? null,
@@ -254,6 +255,7 @@ export class TurnosService {
       idUsuario: num(t.idUsuario),
       idBitacoraApertura: num(t.idBitacoraApertura),
       evidenciaApertura: t.evidenciaApertura ?? null,
+      evidenciaLicencia: t.evidenciaLicencia ?? null,
       longitudApertura: num(t.longitudApertura),
       latitudApertura: num(t.latitudApertura),
       fechaApertura: t.fechaApertura ?? null,
@@ -289,6 +291,7 @@ export class TurnosService {
       idUsuario: turno.idUsuario,
       idBitacoraApertura: turno.idBitacoraApertura,
       evidenciaApertura: turno.evidenciaApertura,
+      evidenciaLicencia: turno.evidenciaLicencia,
       longitudApertura: turno.longitudApertura,
       latitudApertura: turno.latitudApertura,
       fechaApertura: turno.fechaApertura,
@@ -413,7 +416,7 @@ export class TurnosService {
   private assertUrlLength(url: string, campo: string): void {
     if (url.length > 500) {
       throw new BadRequestException(
-        `La URL de ${campo} supera 500 caracteres (límite de columna en base de datos)`,
+        `La URL de ${campo} supera el límite permitido de 500 caracteres`,
       );
     }
   }
@@ -424,18 +427,24 @@ export class TurnosService {
     idUsuario: number,
     idUser: number,
     evidenciaAperturaFile: Express.Multer.File | undefined,
+    evidenciaLicenciaFile: Express.Multer.File | undefined,
     req: Request,
   ): Promise<ApiCrudResponse> {
     try {
       if (!evidenciaAperturaFile?.buffer?.length) {
         throw new BadRequestException(
-          'Debe adjuntar la imagen evidenciaApertura',
+          'Debe adjuntar la imagen de evidencia de apertura',
+        );
+      }
+      if (!evidenciaLicenciaFile?.buffer?.length) {
+        throw new BadRequestException(
+          'Debe adjuntar la imagen de evidencia de licencia',
         );
       }
 
       const placaNorm = this.normalizePlacaKey(dto.placa.trim());
       if (!placaNorm) {
-        throw new BadRequestException('Placa inválida');
+        throw new BadRequestException('La placa ingresada no es válida');
       }
 
       const vehiculo = await this.vehiculosRepository
@@ -448,7 +457,7 @@ export class TurnosService {
 
       if (!vehiculo) {
         throw new BadRequestException(
-          `Vehículo con placa "${dto.placa.trim()}" no encontrado en tabla sombra. Ejecute POST /api/vehiculos/sync primero`,
+          `No se encontró el vehículo con placa ${dto.placa.trim()}. Sincronice los vehículos e intente nuevamente`,
         );
       }
 
@@ -462,7 +471,9 @@ export class TurnosService {
         },
       });
       if (turnoActivo) {
-        throw new BadRequestException('Este vehículo ya tiene un turno activo');
+        throw new BadRequestException(
+          'El vehículo ya tiene un turno activo. Debe cerrarlo antes de abrir uno nuevo',
+        );
       }
 
       const { saved, idBitacoraApertura } = await this.repository.manager.transaction(
@@ -477,6 +488,7 @@ export class TurnosService {
             latitudApertura: dto.latitud ?? null,
             longitudApertura: dto.longitud ?? null,
             evidenciaApertura: null,
+            evidenciaLicencia: null,
             idEstatusTurno: EnumEstatusTurno.EN_CURSO,
             fechaApertura: new Date(Date.now()),
             estatus: EstatusEnum.ACTIVO,
@@ -506,13 +518,13 @@ export class TurnosService {
 
       const writtenPaths: string[] = [];
       try {
-        const stored = await this.procesarArchivo(
+        const storedApertura = await this.procesarArchivo(
           evidenciaAperturaFile,
           Number(saved.id),
         );
-        let evidenciaUrl = stored?.publicUrl ?? null;
-        if (stored?.absolutePath) {
-          writtenPaths.push(stored.absolutePath);
+        let evidenciaUrl = storedApertura?.publicUrl ?? null;
+        if (storedApertura?.absolutePath) {
+          writtenPaths.push(storedApertura.absolutePath);
         }
         if (!evidenciaUrl) {
           evidenciaUrl = dto.evidenciaAperturaUrl?.trim() || null;
@@ -520,13 +532,26 @@ export class TurnosService {
 
         if (!evidenciaUrl) {
           throw new BadRequestException(
-            'No se pudo obtener URL de evidencia (almacenamiento local o evidenciaAperturaUrl)',
+            'No se pudo guardar la imagen de evidencia de apertura',
           );
         }
-        this.assertUrlLength(evidenciaUrl, 'evidencia');
+        this.assertUrlLength(evidenciaUrl, 'evidencia de apertura');
+
+        const storedLicencia = await this.procesarArchivo(
+          evidenciaLicenciaFile,
+          Number(saved.id),
+        );
+        if (!storedLicencia?.publicUrl) {
+          throw new BadRequestException(
+            'No se pudo guardar la imagen de evidencia de licencia',
+          );
+        }
+        writtenPaths.push(storedLicencia.absolutePath);
+        this.assertUrlLength(storedLicencia.publicUrl, 'evidencia de licencia');
 
         await this.repository.update(saved.id, {
           evidenciaApertura: evidenciaUrl,
+          evidenciaLicencia: storedLicencia.publicUrl,
         });
       } catch (error) {
         await this.turnosStorage.cleanup(writtenPaths);
@@ -553,7 +578,9 @@ export class TurnosService {
       if (error instanceof HttpException) {
         throw error;
       }
-      throw new BadRequestException((error as Error).message);
+      throw new BadRequestException(
+        (error as Error).message || 'No se pudo crear el turno',
+      );
     }
   }
 
@@ -1390,6 +1417,7 @@ export class TurnosService {
         t.IdCliente AS idCliente,
         t.IdUsuario AS idUsuario,
         t.IdBitacoraApertura AS idBitacoraApertura,
+        t.EvidenciaLicencia AS evidenciaLicencia,
         t.EvidenciaApertura AS evidenciaApertura,
         t.LongitudApertura AS longitudApertura,
         t.LatitudApertura AS latitudApertura,
@@ -1462,6 +1490,7 @@ export class TurnosService {
         t.IdCliente AS idCliente,
         t.IdUsuario AS idUsuario,
         t.IdBitacoraApertura AS idBitacoraApertura,
+        t.EvidenciaLicencia AS evidenciaLicencia,
         t.EvidenciaApertura AS evidenciaApertura,
         t.LongitudApertura AS longitudApertura,
         t.LatitudApertura AS latitudApertura,

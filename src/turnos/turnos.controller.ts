@@ -126,13 +126,19 @@ export class TurnosController {
   @ApiOperation({
     summary: 'Crear turno (abrir turno)',
     description:
-      'multipart/form-data: placa, latitud, longitud e imagen evidenciaApertura. ' +
+      'multipart/form-data: placa, latitud, longitud, imagen evidenciaApertura e imagen evidenciaLicencia (ambas obligatorias). ' +
       'El vehículo debe existir en tabla sombra (validar placa/OCR por separado con /api/plate/read y /api/placas/validar).',
   })
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['placa', 'latitud', 'longitud', 'evidenciaApertura'],
+      required: [
+        'placa',
+        'latitud',
+        'longitud',
+        'evidenciaApertura',
+        'evidenciaLicencia',
+      ],
       properties: {
         placa: { type: 'string', example: 'NU-7653-B' },
         latitud: { type: 'number', example: 18.9242156 },
@@ -141,6 +147,11 @@ export class TurnosController {
           type: 'string',
           format: 'binary',
           description: 'Imagen de evidencia de apertura (disco local)',
+        },
+        evidenciaLicencia: {
+          type: 'string',
+          format: 'binary',
+          description: 'Imagen de evidencia de licencia del operador (disco local)',
         },
       },
     },
@@ -261,12 +272,24 @@ export class TurnosController {
   @ApiResponse({
     status: 400,
     description:
-      'Sin imagen, placa inválida, vehículo no encontrado en sombra, turno activo del vehículo o URL de evidencia inválida',
+      'Faltan imágenes obligatorias, la placa no es válida, el vehículo no está disponible, ya existe un turno activo o no se pudieron guardar las evidencias',
   })
-  @UseInterceptors(FileInterceptor('evidenciaApertura', TURNOS_CREATE_UPLOAD))
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'evidenciaApertura', maxCount: 1 },
+        { name: 'evidenciaLicencia', maxCount: 1 },
+      ],
+      TURNOS_CREATE_UPLOAD,
+    ),
+  )
   async create(
     @Body() dto: CreateTurnoDto,
-    @UploadedFile() evidenciaApertura: Express.Multer.File,
+    @UploadedFiles()
+    files: {
+      evidenciaApertura?: Express.Multer.File[];
+      evidenciaLicencia?: Express.Multer.File[];
+    },
     @Request() req,
   ): Promise<ApiCrudResponse> {
     const idCliente = req.user.idCliente;
@@ -277,7 +300,8 @@ export class TurnosController {
       idCliente,
       idUsuario,
       idUser,
-      evidenciaApertura,
+      files?.evidenciaApertura?.[0],
+      files?.evidenciaLicencia?.[0],
       req,
     );
   }

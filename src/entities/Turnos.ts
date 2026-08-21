@@ -38,6 +38,9 @@ export class Turnos {
   @Column('bigint', { name: 'IdBitacoraApertura', nullable: true })
   idBitacoraApertura: number | null;
 
+  @Column('varchar', { name: 'EvidenciaLicencia', length: 500, nullable: true })
+  evidenciaLicencia: string | null;
+
   @Column('varchar', { name: 'EvidenciaApertura', length: 500, nullable: true })
   evidenciaApertura: string | null;
 
