@@ -47,9 +47,10 @@ export class PlateProxyBehaviorIqController extends PlacasBffBaseController {
   @ApiOperation({
     summary: 'Detección + OCR de placa (proxy BehaviorIQ)',
     description:
-      'Equivale a `POST {BEHAVIORIQ_BASE_URL}/plate/read`.\n\n' +
+      'Equivale a `POST {BEHAVIORIQ_BASE_URL}/plate/read` ([Swagger BehaviorIQ](https://spcode.ddns.net/api-behavioriq/docs#/Placa%20(proxy)/PlateProxyController_read)).\n\n' +
       '**Auth:** enviar solo `Authorization: Bearer <JWT ShiftControl>`.\n\n' +
-      '**Body:** `multipart/form-data` con campo `file` (PNG/JPEG, máx. 12 MB).',
+      '**Body:** `multipart/form-data` con campo `file` (PNG/JPEG, máx. 12 MB).\n\n' +
+      '**Errores:** se propaga el mismo código HTTP que BehaviorIQ (400, 403, 422, 503, etc.); el `message` se formaliza para el usuario final.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -61,7 +62,7 @@ export class PlateProxyBehaviorIqController extends PlacasBffBaseController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Número de placa detectado',
+    description: 'Número de placa detectado (mismo contrato que BehaviorIQ)',
     schema: { example: { plate_number: 'ABC-123', confidence: 0.94 } },
   })
   @ApiResponse({
@@ -69,16 +70,32 @@ export class PlateProxyBehaviorIqController extends PlacasBffBaseController {
     description: 'Número de placa detectado (algunos despliegues responden 201)',
   })
   @ApiBadRequestResponse({
-    description: 'No se detectó placa, archivo inválido o tipo MIME no permitido',
+    description:
+      'No se detectó placa o parámetros inválidos (alineado a BehaviorIQ 400). También archivo vacío o MIME no permitido en ShiftControl.',
   })
-  @ApiUnauthorizedResponse({ description: 'JWT de ShiftControl inválido o ausente' })
-  @ApiForbiddenResponse({ description: 'Servicio de placa no habilitado para el tenant' })
-  @ApiServiceUnavailableResponse({ description: 'BehaviorIQ no disponible' })
-  @ApiInternalServerErrorResponse({ description: 'Error al comunicar con BehaviorIQ' })
+  @ApiUnauthorizedResponse({
+    description: 'JWT de ShiftControl inválido/ausente, o BehaviorIQ respondió 401',
+  })
+  @ApiForbiddenResponse({
+    description: 'Servicio de placa no habilitado para la solución (BehaviorIQ 403)',
+  })
+  @ApiResponse({
+    status: 422,
+    description:
+      'Imagen no procesable (p. ej. validación de archivo en BehaviorIQ). Se propaga el 422; el mensaje se formaliza para el usuario final.',
+  })
+  @ApiServiceUnavailableResponse({
+    description: 'Servicio de placa no disponible (BehaviorIQ 503)',
+  })
+  @ApiInternalServerErrorResponse({
+    description: 'Fallo de red/comunicación con BehaviorIQ o respuesta incompleta',
+  })
   @UseInterceptors(FileInterceptor('file', PLACAS_IMAGE_MULTER))
   async read(@UploadedFile() file: Express.Multer.File) {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Debe adjuntar el campo file (imagen)');
+      throw new BadRequestException(
+        'Debe adjuntar la imagen de la placa. Vuelva a capturarla e intente nuevamente.',
+      );
     }
     const token = await this.behaviorIqServiceToken();
     return this.behaviorIqPlate.readPlate(file, token);

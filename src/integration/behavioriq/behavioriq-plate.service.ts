@@ -19,6 +19,69 @@ import type {
   BehaviorIqValidarPlacaResponse,
 } from './behavioriq-plate.interface';
 
+/** Mensajes al usuario final: cercanos al texto de BehaviorIQ, sin tecnicismos. */
+const PLATE_READ_USER_MESSAGES: Record<number, string> = {
+  400: 'No se detectó la placa en la imagen. Vuelva a capturar la imagen e intente nuevamente.',
+  401: 'No tiene autorización para utilizar este servicio.',
+  403: 'El servicio de lectura de placas no está habilitado.',
+  404: 'No se detectó la placa en la imagen. Vuelva a capturar la imagen e intente nuevamente.',
+  422: 'La imagen no pudo procesarse. Se tomó como inválida; vuelva a capturar la imagen.',
+  503: 'El servicio no está disponible en este momento. Intente más tarde.',
+};
+
+function extractBehaviorIqMessage(data: unknown): string | undefined {
+  if (data == null) return undefined;
+  if (typeof data === 'string') {
+    const t = data.trim();
+    return t || undefined;
+  }
+  if (typeof data !== 'object') return undefined;
+  const obj = data as Record<string, unknown>;
+  const raw = obj.message ?? obj.mensaje ?? obj.error;
+  if (typeof raw === 'string') {
+    const t = raw.trim();
+    return t || undefined;
+  }
+  if (Array.isArray(raw)) {
+    const parts = raw.filter((x): x is string => typeof x === 'string' && x.trim() !== '');
+    return parts.length ? parts.join('; ') : undefined;
+  }
+  return undefined;
+}
+
+/** True si el mensaje de BehaviorIQ puede mostrarse al usuario (sin detalle técnico). */
+function isUserFacingMessage(message: string): boolean {
+  const m = message.trim();
+  if (m.length < 8) return false;
+  if (
+    /behavioriq|stack|exception|axios|econn|etimedout|respondió\s+\d|unprocessable|bad request|internal server|traceback|at\s+\w+\.|http\s+\d{3}|\b(png|jpeg|jpg|mime|multipart|form-data|bearer)\b/i.test(
+      m,
+    )
+  ) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Prefiere el mensaje original de BehaviorIQ si es apto para el usuario;
+ * si no, usa el texto formal por status (sin tecnicismos).
+ */
+function resolvePlateReadUserMessage(status: number, data: unknown): string {
+  const fromBiq = extractBehaviorIqMessage(data);
+  if (fromBiq && isUserFacingMessage(fromBiq)) {
+    return fromBiq;
+  }
+
+  const mapped = PLATE_READ_USER_MESSAGES[status];
+  if (mapped) return mapped;
+
+  if (status >= 500) {
+    return 'Ocurrió un error al leer la placa. Intente más tarde.';
+  }
+  return 'No fue posible leer la placa. Vuelva a capturar la imagen e intente nuevamente.';
+}
+
 @Injectable()
 export class BehaviorIqPlateService {
   /** Token BehaviorIQ vía cuenta de servicio (.env), no expuesto al front. */
@@ -36,6 +99,7 @@ export class BehaviorIqPlateService {
 
   /**
    * OCR de placa vía behaviorIQ `POST /plate/read`.
+   * Propaga el mismo HTTP status que BehaviorIQ; el mensaje se formaliza para el usuario final.
    * Si no se pasa `bearerToken`, inicia sesión con credenciales del .env.
    */
   async readPlate(
@@ -43,7 +107,9 @@ export class BehaviorIqPlateService {
     bearerToken?: string,
   ): Promise<BehaviorIqPlateReadResponse> {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Archivo vacío o no recibido');
+      throw new BadRequestException(
+        'Debe adjuntar la imagen de la placa. Vuelva a capturarla e intente nuevamente.',
+      );
     }
 
     const token =
@@ -73,27 +139,14 @@ export class BehaviorIqPlateService {
         },
       );
 
-      if (status === 403) {
-        throw new BadRequestException(
-          'behaviorIQ: servicio de placa no habilitado para esta solución',
-        );
-      }
-      if (status === 503) {
-        throw new ServiceUnavailableException(
-          'behaviorIQ: servicio de placa no disponible',
-        );
-      }
-      if (status === 404) {
-        throw new BadRequestException(
-          'No fue posible asociar el vehículo al turno. La placa no está registrada en el sistema o no pudo identificarse correctamente en la imagen. Verifique que la unidad esté dada de alta e intente nuevamente con una fotografía clara de la placa.',
-        );
-      }
       if (status !== 200 && status !== 201) {
         this.logger.warn(
           `behaviorIQ plate/read HTTP ${status}: ${JSON.stringify(data)}`,
         );
-        throw new InternalServerErrorException(
-          `behaviorIQ plate/read respondió ${status}`,
+        // Mismo status que BehaviorIQ; mensaje formal para el usuario final.
+        throw new HttpException(
+          resolvePlateReadUserMessage(status, data),
+          status,
         );
       }
 
@@ -103,17 +156,13 @@ export class BehaviorIqPlateService {
         typeof data.confidence !== 'number'
       ) {
         throw new InternalServerErrorException(
-          'behaviorIQ plate/read: respuesta inválida',
+          'No se pudo leer la placa. Intente nuevamente.',
         );
       }
 
       return data;
     } catch (err) {
-      if (
-        err instanceof BadRequestException ||
-        err instanceof ServiceUnavailableException ||
-        err instanceof InternalServerErrorException
-      ) {
+      if (err instanceof HttpException) {
         throw err;
       }
       const ax = err as AxiosError;
@@ -123,7 +172,7 @@ export class BehaviorIqPlateService {
           : ax.message;
       this.logger.error(`behaviorIQ plate/read error: ${msg}`);
       throw new InternalServerErrorException(
-        'No se pudo leer la placa en behaviorIQ',
+        'No fue posible leer la placa. Intente más tarde.',
       );
     }
   }
