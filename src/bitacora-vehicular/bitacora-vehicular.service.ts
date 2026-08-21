@@ -116,7 +116,7 @@ export class BitacoraVehicularService {
       return null;
     } catch (err) {
       this.logger.warn(
-        `vehiculos/placa omitido placa=${placa}: ${(err as Error).message}`,
+        `productos/vehiculos/placa omitido placa=${placa}: ${(err as Error).message}`,
       );
       return null;
     }

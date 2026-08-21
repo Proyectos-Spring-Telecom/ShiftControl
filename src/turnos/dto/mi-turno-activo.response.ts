@@ -15,15 +15,15 @@ export class MiTurnoActivoVehiculoDto {
 
   @ApiPropertyOptional({
     description:
-      'Datos enriquecidos desde Next (`GET /vehiculos/placa/:placa`): marca, modelo, tipo, combustible, cliente, etc.',
+      'Datos enriquecidos desde Next (`GET /api/productos/vehiculos/placa/:placa`): marcaNombre, modeloNombre, combustibleNombre, cliente, etc. Sin tipoVehiculo.',
     nullable: true,
     example: {
       id: 42,
-      placa: 'NU-7653-B',
-      marca: 'Nissan',
-      modelo: 'NP300',
-      tipoVehiculo: 'Pick up',
-      combustible: 'Gasolina',
+      placa: 'A-06104-E',
+      marcaNombre: 'Volkswagen',
+      modeloNombre: 'Virtus',
+      combustibleNombre: null,
+      idCliente: 11,
     },
   })
   detalle: Record<string, unknown> | null;

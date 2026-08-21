@@ -996,7 +996,7 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; font-size: 11px; color: #0E2
       return null;
     } catch (err) {
       this.logger.warn(
-        `vehiculos/placa omitido placa=${placa}: ${(err as Error).message}`,
+        `productos/vehiculos/placa omitido placa=${placa}: ${(err as Error).message}`,
       );
       return null;
     }

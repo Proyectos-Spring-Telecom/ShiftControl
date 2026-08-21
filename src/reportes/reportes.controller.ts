@@ -161,7 +161,7 @@ export class ReportesController {
     summary: 'Vista previa HTML — reporte de turno',
     description:
       'Datos vía TypeORM (turno, bitácoras, incidencias, inspecciones). ' +
-      'Vehículo y operador enriquecidos con GET /api/vehiculos/placa/:placa y GET /api/usuarios/:id (Next).',
+      'Vehículo y operador enriquecidos con Next `GET /api/productos/vehiculos/placa/:placa` y GET /api/usuarios/:id.',
   })
   @ApiParam({ name: 'id', description: 'ID del turno' })
   @ApiQuery({
@@ -190,7 +190,7 @@ export class ReportesController {
     summary: 'Descargar PDF — reporte de turno',
     description:
       'Datos vía TypeORM (turno, bitácoras, incidencias, inspecciones). ' +
-      'Vehículo y operador enriquecidos con GET /api/vehiculos/placa/:placa y GET /api/usuarios/:id (Next).',
+      'Vehículo y operador enriquecidos con Next `GET /api/productos/vehiculos/placa/:placa` y GET /api/usuarios/:id.',
   })
   @ApiParam({ name: 'id', description: 'ID del turno' })
   @ApiQuery({

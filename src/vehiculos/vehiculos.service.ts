@@ -178,13 +178,25 @@ export class VehiculosService {
   }
 
   /**
-   * Buscar vehículo por placa — proxy a Next GET /vehiculos/placa/:placa
-   * Next retorna datos enriquecidos (marca, modelo, tipo, combustible, cliente).
-   * Roles 1-3 buscan globalmente; otros roles filtran por idCliente del token (Next).
+   * Buscar vehículo por placa — proxy a Next:
+   * `GET {ENDPOINT_URL}/api/productos/vehiculos/placa/:placa`
+   *
+   * Contrato productivo: `{ data: { id, placa, numeroEconomico, anio, color,
+   * fotoFrente, km, capacidadLitros, estatus, fechaCreacion, idCliente,
+   * nombreCompleto, modeloId, modeloNombre, marcaId, marcaNombre,
+   * combustibleId, combustibleNombre } }`.
+   * No incluye tipoVehiculoId/tipoVehiculoNombre.
+   * Errores 400/401/404 suelen venir como texto plano desde Next.
+   * Solo productos activos (estatus=1); alcance por rol del JWT lo aplica Next.
    */
   async findOneByPlaca(placa: string, req: Request) {
+    const placaTrim = placa?.trim() ?? '';
+    if (!placaTrim) {
+      return { status: 400, data: 'Placa inválida' };
+    }
+
     const r = await this.endpointProxy.forwardGet(
-      `vehiculos/placa/${encodeURIComponent(placa.trim())}`,
+      `productos/vehiculos/placa/${encodeURIComponent(placaTrim)}`,
       req,
     );
 
@@ -204,11 +216,15 @@ export class VehiculosService {
           const { fotoFrente, marca, modelo } = this.shadowFieldsFromNext(vehiculo);
           this.ensureShadow(vid, idCliente, placaNorm, fotoFrente, marca, modelo).catch((err) =>
             this.logger.warn(
-              `Error creando sombra vehiculo placa=${placa}: ${(err as Error).message}`,
+              `Error creando sombra vehiculo placa=${placaTrim}: ${(err as Error).message}`,
             ),
           );
         }
       }
+    } else if (typeof r.data === 'string' && r.data.trim()) {
+      this.logger.warn(
+        `Next productos/vehiculos/placa HTTP ${r.status}: ${r.data.slice(0, 200)}`,
+      );
     }
 
     return { status: r.status, data: r.data };

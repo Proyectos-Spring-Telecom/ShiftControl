@@ -67,13 +67,116 @@ export class VehiculosController {
   @ApiOperation({
     summary: 'Buscar vehículo por placa (proxy a Next)',
     description:
-      'Retorna datos enriquecidos: marca, modelo, tipo vehículo, combustible y cliente. Roles 1-3 buscan globalmente; otros roles filtran por idCliente del token (Next).',
+      'Proxy a Next `GET {ENDPOINT_URL}/api/productos/vehiculos/placa/:placa`.\n\n' +
+      'Reenvía el JWT del cliente. Next solo devuelve productos activos (`estatus = 1`) ' +
+      'y aplica alcance por rol (global / jerarquía / cliente).\n\n' +
+      'Respuesta 200: `{ data: { id, placa, numeroEconomico, anio, color, fotoFrente, km, ' +
+      'capacidadLitros, estatus, fechaCreacion, idCliente, nombreCompleto, modeloId, modeloNombre, ' +
+      'marcaId, marcaNombre, combustibleId, combustibleNombre } }`.\n\n' +
+      'No incluye `tipoVehiculoId` / `tipoVehiculoNombre`. Errores 400/401/404 suelen ser texto plano.',
   })
-  @ApiParam({ name: 'placa', description: 'Placa del vehículo' })
-  @ApiResponse({ status: 200, description: 'Vehículo encontrado' })
-  @ApiResponse({ status: 400, description: 'Placa inválida' })
-  @ApiResponse({ status: 404, description: 'Vehículo no encontrado' })
-  @ApiResponse({ status: 401, description: 'No autorizado' })
+  @ApiParam({
+    name: 'placa',
+    description: 'Placa del vehículo (se codifica hacia Next con encodeURIComponent)',
+    example: 'A-06104-E',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Vehículo activo encontrado (contrato Next productivo)',
+    schema: {
+      type: 'object',
+      properties: {
+        data: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 1, description: 'IdProducto' },
+            placa: { type: 'string', example: 'A-06104-E' },
+            numeroEconomico: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: '1',
+            },
+            anio: { oneOf: [{ type: 'integer' }, { type: 'null' }], example: 2019 },
+            color: { oneOf: [{ type: 'string' }, { type: 'null' }], example: 'Rojo' },
+            fotoFrente: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: null,
+              description: 'URL S3 o null',
+            },
+            km: { oneOf: [{ type: 'number' }, { type: 'null' }], example: null },
+            capacidadLitros: {
+              oneOf: [{ type: 'number' }, { type: 'null' }],
+              example: null,
+            },
+            estatus: { type: 'integer', example: 1 },
+            fechaCreacion: {
+              type: 'string',
+              format: 'date-time',
+              example: '2026-04-13T20:26:00.000Z',
+            },
+            idCliente: { type: 'integer', example: 11 },
+            nombreCompleto: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: 'transporterapido',
+            },
+            modeloId: { oneOf: [{ type: 'integer' }, { type: 'null' }], example: 16 },
+            modeloNombre: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: 'Virtus',
+            },
+            marcaId: { oneOf: [{ type: 'integer' }, { type: 'null' }], example: 3 },
+            marcaNombre: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: 'Volkswagen',
+            },
+            combustibleId: {
+              oneOf: [{ type: 'integer' }, { type: 'null' }],
+              example: null,
+            },
+            combustibleNombre: {
+              oneOf: [{ type: 'string' }, { type: 'null' }],
+              example: null,
+            },
+          },
+        },
+      },
+      example: {
+        data: {
+          id: 1,
+          placa: 'A-06104-E',
+          numeroEconomico: '1',
+          anio: 2019,
+          color: 'Rojo',
+          fotoFrente: null,
+          km: null,
+          capacidadLitros: null,
+          estatus: 1,
+          fechaCreacion: '2026-04-13T20:26:00.000Z',
+          idCliente: 11,
+          nombreCompleto: 'transporterapido',
+          modeloId: 16,
+          modeloNombre: 'Virtus',
+          marcaId: 3,
+          marcaNombre: 'Volkswagen',
+          combustibleId: null,
+          combustibleNombre: null,
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Placa vacía/inválida, o varias placas iguales en el ámbito del rol (cuerpo suele ser texto plano)',
+  })
+  @ApiResponse({
+    status: 404,
+    description:
+      'No hay vehículo activo con esa placa en el tenant permitido (cuerpo suele ser texto plano)',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Sin token o token inválido (cuerpo suele ser texto plano)',
+  })
   async findOneByPlaca(
     @Param('placa') placa: string,
     @Req() req: Request,

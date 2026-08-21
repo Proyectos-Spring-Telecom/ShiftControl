@@ -31,7 +31,7 @@ export class BitacoraVehicularController {
   @ApiOperation({
     summary: 'Información general de bitácora vehicular',
     description:
-      'Vehículo: título (marca + modelo + año) y subtítulo (placa) vía GET /api/vehiculos/placa/:placa (Next). ' +
+      'Vehículo: título (marca + modelo + año) y subtítulo (placa) vía Next `GET /api/productos/vehiculos/placa/:placa`. ' +
       'Operador: nombre e id desde GET /api/usuarios/:id (Next), usando IdUsuario del turno asociado a la bitácora. ' +
       'Estado del vehículo: carrocería (InspeccionVehiculoEx), indicadores, luces, accesorios, documentación y fluidos desde BitacoraVehiculo. ' +
       'Métricas iniciales: odómetro (Tablero.KmActual) y litros cargados (regla de tres: gasolina % × capacidadLitros / 100). ' +

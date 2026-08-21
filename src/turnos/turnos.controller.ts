@@ -212,8 +212,6 @@ export class TurnosController {
                         modeloNombre: { type: 'string', example: 'Virtus' },
                         marcaId: { type: 'integer', example: 3 },
                         marcaNombre: { type: 'string', example: 'Volkswagen' },
-                        tipoVehiculoId: { type: 'integer', example: 1 },
-                        tipoVehiculoNombre: { type: 'string', example: 'Sedán' },
                         combustibleId: {
                           oneOf: [{ type: 'integer' }, { type: 'null' }],
                           example: null,
@@ -258,8 +256,6 @@ export class TurnosController {
                 modeloNombre: 'Virtus',
                 marcaId: 3,
                 marcaNombre: 'Volkswagen',
-                tipoVehiculoId: 1,
-                tipoVehiculoNombre: 'Sedán',
                 combustibleId: null,
                 combustibleNombre: null,
               },
@@ -956,11 +952,6 @@ export class TurnosController {
                               type: 'string',
                               example: 'Volkswagen',
                             },
-                            tipoVehiculoId: { type: 'integer', example: 1 },
-                            tipoVehiculoNombre: {
-                              type: 'string',
-                              example: 'Sedán',
-                            },
                             combustibleId: {
                               oneOf: [{ type: 'integer' }, { type: 'null' }],
                               example: null,
@@ -1030,8 +1021,6 @@ export class TurnosController {
                     modeloNombre: 'Virtus',
                     marcaId: 3,
                     marcaNombre: 'Volkswagen',
-                    tipoVehiculoId: 1,
-                    tipoVehiculoNombre: 'Sedán',
                     combustibleId: null,
                     combustibleNombre: null,
                   },
@@ -1204,7 +1193,7 @@ export class TurnosController {
     summary: 'Obtener turno por ID',
     description:
       'TypeORM. Verifica que el turno exista y devuelve sus datos con vehículo sombra, estatus, usuario y cliente. ' +
-      'Incluye `vehiculoPlaca` (GET /api/vehiculos/placa/:placa), `usuarioDetalle` (GET /api/usuarios/:id) y ' +
+      'Incluye `vehiculoPlaca` (proxy Next `GET /api/productos/vehiculos/placa/:placa`), `usuarioDetalle` (GET /api/usuarios/:id) y ' +
       '`bitacoraResumen.inicio` / `bitacoraResumen.fin` (información general + imagen tablero vía idTablero de cada bitácora). ' +
       '`data.incidenciasAccidente` e `data.incidenciasGasolina` (registros del turno por IdTurno, si existen). ' +
       'Ejemplo cURL: `GET /api/turnos/1` con cabecera `Authorization: Bearer <token>`.',
